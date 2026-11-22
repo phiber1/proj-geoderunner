@@ -10,12 +10,19 @@ rows of 32 cells:
     T  a geode      P  the hero's start    E  a thief's start
     X  the hidden exit ladder (appears when every geode is collected)
 
-How a level is made sure to be finishable: the generator lays out floors,
-ladders, gaps, cables and stone, then works out where the hero can go
-(walking, climbing, hanging, falling and digging down through brick) and
-puts geodes only where he can both get to and get back from, so they can
-be collected in any order.  The exit ladder climbs to the top from a
-place he can reach.
+Levels come in styles, mixed more as the levels go up: floors, scattered
+ledges, rooms walled with stone, a brick pyramid with hidden chambers,
+caverns dug out of solid rock, mirror images, and, every 10th level, a
+word spelled in ladders.
+
+How every level is made sure to be finishable: a style lays out its
+shapes, then the generator works out where the hero can go (walking,
+climbing, hanging, falling, and digging down through one or two layers of
+brick) and where he can get back from, and adds ladders until nearly all
+of the level is both.  Geodes go only where he can get to and back from,
+so they can be collected in any order; the exit ladder climbs to the top
+from such a place.  Several candidates are made and the most interesting
+kept.
 
     python3 tools/levelgen.py N [N2 ...]     print levels
     python3 tools/levelgen.py --sheet OUT.png N1 N2 ...   a contact sheet
@@ -27,20 +34,24 @@ import sys
 
 COLS, ROWS = 32, 15
 SOLID = 'BS'
-BANDS = [2, 5, 8, 11]           # floor rows (row 14 is the bottom: stone)
+WORDS = [('DIG', 'DEEP'), ('MC10', '1983'), ('GEMS', 'RUN'), ('ROCK', 'ON'),
+         ('CAVE', 'IN'), ('HI', 'MOM'), ('LOOT', 'DIG'), ('GO', 'WEST'),
+         ('OH', 'NO'), ('GEO', 'DES'), ('BLRP', '!'), ('THE', 'END?')]
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def params(n):
     """difficulty for level n (1 = easiest)"""
     t = min(1.0, (n - 1) / 60)              # ramps up over the first 60 levels
     return dict(
+        t=t,
         stone=0.08 + 0.32 * t,              # share of floor that is stone
         gaps=0.10 + 0.10 * t,               # chance a floor run ends in a gap
-        ladders=3 if t < 0.3 else 2 if t < 0.7 else 1,   # extra ladders per band
+        ladders=3 if t < 0.3 else 2 if t < 0.7 else 1,   # extra ladders per floor
         cables=0.0 if n < 3 else 0.25 + 0.35 * t,        # chance a gap gets a cable
-        double=0.0 if n < 8 else 0.15 + 0.35 * t,        # chance a run is two bricks deep
+        double=0.0 if n < 8 else 0.15 + 0.35 * t,        # chance of two-deep brick
         geodes=6 + int(6 * t),
-        dig_geodes=0 if n < 2 else 1 + int(3 * t),       # geodes that need digging to reach
+        dig_geodes=0 if n < 2 else 1 + int(3 * t),       # geodes only digging reaches
         thieves=min(5, 1 + n // 6),
     )
 
@@ -65,42 +76,67 @@ def moves(g, r, c, dig=True):
     """the cells the hero can get to from (r, c) in one move"""
     here = at(g, r, c)
     if not supported(g, r, c):
-        return [(r + 1, c)]                 # falling
-    out = []
-    for dc in (-1, 1):                      # walk or swing along
-        if at(g, r, c + dc) not in SOLID:
-            out.append((r, c + dc))
-    if here in 'HX' and at(g, r - 1, c) not in SOLID and r > 0:
-        out.append((r - 1, c))              # climb up
-    below = at(g, r + 1, c)
-    if below in 'HX' or (here in 'HX-' and below not in SOLID):
-        out.append((r + 1, c))              # climb down, or let go
-    if dig and here not in 'HX-' and at(g, r + 1, c) in SOLID:
-        for dc in (-1, 1):
-            side, under = at(g, r, c + dc), at(g, r + 1, c + dc)
-            # dig the brick below-left/right, step over and drop through it
-            if side not in SOLID + 'HX-' and under == 'B' and at(g, r + 2, c + dc) not in SOLID:
-                out.append((r + 1, c + dc))
-            # two bricks deep: dig two side by side, drop into the near one,
-            # dig the brick under the far one from inside, drop through it
-            far = c + 2 * dc
-            if (side not in SOLID + 'HX-' and at(g, r, far) not in SOLID + 'HX-'
-                    and under == 'B' and at(g, r + 1, far) == 'B'
-                    and at(g, r + 2, far) == 'B' and at(g, r + 3, far) not in SOLID
-                    and at(g, r + 2, c + dc) in SOLID):
-                out.append((r + 2, far))
-    return out
+        out = [(r + 1, c)]                  # falling
+    else:
+        out = []
+        for dc in (-1, 1):                  # walk or swing along
+            if at(g, r, c + dc) not in SOLID:
+                out.append((r, c + dc))
+        if here in 'HX' and r > 0 and at(g, r - 1, c) not in SOLID:
+            out.append((r - 1, c))          # climb up
+        below = at(g, r + 1, c)
+        if below in 'HX' or (here in 'HX-' and below not in SOLID):
+            out.append((r + 1, c))          # climb down, or let go
+        if dig and here not in 'HX-' and below in SOLID:
+            for dc in (-1, 1):
+                side, under = at(g, r, c + dc), at(g, r + 1, c + dc)
+                # dig the brick below-left/right, step over, drop through it
+                if side not in SOLID + 'HX-' and under == 'B' and at(g, r + 2, c + dc) not in SOLID:
+                    out.append((r + 1, c + dc))
+                # two bricks deep: dig two side by side, drop into the near
+                # one, dig the brick under the far one, drop through it
+                far = c + 2 * dc
+                if (side not in SOLID + 'HX-' and at(g, r, far) not in SOLID + 'HX-'
+                        and under == 'B' and at(g, r + 1, far) == 'B'
+                        and at(g, r + 2, far) == 'B' and at(g, r + 3, far) not in SOLID
+                        and at(g, r + 2, c + dc) in SOLID):
+                    out.append((r + 2, far))
+    return [q for q in out if 0 <= q[0] < ROWS and at(g, *q) not in SOLID]
 
 
-def reach(g, start, dig=True):
+def graph(g, dig=True):
+    """every open cell's moves, and the reverse"""
+    fwd, back = {}, {}
+    for r in range(ROWS):
+        for c in range(COLS):
+            if g[r][c] in SOLID:
+                continue
+            fwd[(r, c)] = moves(g, r, c, dig)
+            for q in fwd[(r, c)]:
+                back.setdefault(q, []).append((r, c))
+    return fwd, back
+
+
+def bfs(edges, start):
     seen, todo = {start}, [start]
     while todo:
         p = todo.pop()
-        for q in moves(g, *p, dig=dig):
-            if 0 <= q[0] < ROWS and q not in seen and at(g, *q) not in SOLID:
+        for q in edges.get(p, ()):
+            if q not in seen:
                 seen.add(q)
                 todo.append(q)
     return seen
+
+
+def reach(g, start, dig=True):
+    return bfs(graph(g, dig)[0], start)
+
+
+def two_way(g, start):
+    """(cells the hero can reach from start, cells he can also get back from)"""
+    fwd, back = graph(g)
+    out = bfs(fwd, start)
+    return out, out & bfs(back, start)
 
 
 def standing(g, p):
@@ -108,98 +144,346 @@ def standing(g, p):
     return at(g, r, c) not in SOLID + 'HX-' and at(g, r + 1, c) in SOLID
 
 
-# ---------------------------------------------------------------- building
+def stand_cells(g):
+    return [(r, c) for r in range(ROWS - 1) for c in range(COLS) if standing(g, (r, c))]
 
-def build(n):
-    rnd = random.Random(n * 7919 + 17)
-    P = params(n)
+
+# ---------------------------------------------------------------- repair
+
+def ladder(g, c, r0, r1):
+    """a ladder in column c from row r0 down to row r1 (inclusive)"""
+    for y in range(r0, r1 + 1):
+        g[y][c] = 'H'
+
+
+def beside(g, c, r0, r1, keep=()):
+    """would a ladder in column c, rows r0..r1, run alongside another, or
+    through cells to be kept as they are (a word's letters)?"""
+    return (any(at(g, y, c + d) in 'HX' for y in range(r0, r1 + 1) for d in (-1, 1))
+            or any((y, c) in keep for y in range(r0, r1 + 1)))
+
+
+def repair(g, rnd, start, tries=40, keep=(), slack=20):
+    """add ladders until nearly every standing cell (all but 1/slack) is
+    two-way reachable from start; False if it can't"""
+    for _ in range(tries):
+        out, both = two_way(g, start)
+        stands = stand_cells(g)
+        bad = [p for p in stands if p not in both]
+        if len(bad) <= len(stands) // slack:
+            return True
+        rnd.shuffle(bad)
+        walk = graph(g, dig=False)[0]
+        fixed = False
+        for (r, c) in bad[:12]:
+            # the platform he'd be on there: try ladders from its cells
+            plat = sorted({q[1] for q in bfs(walk, (r, c)) if q[0] == r})
+            rnd.shuffle(plat)
+            for x in plat[:8]:
+                if g[r][x] in 'H-' or g[r + 1][x] == 'H':
+                    continue
+                for y in range(r + 1, ROWS - 1):        # down to a good place
+                    if (y, x) in both and at(g, y + 1, x) in SOLID + 'H':
+                        if not beside(g, x, r + 1, y, keep):
+                            ladder(g, x, r + 1, y)
+                            fixed = True
+                        break
+                if not fixed:                           # or up to one
+                    for y in range(r - 1, -1, -1):
+                        if (y, x) in both and at(g, y + 1, x) in SOLID:
+                            if not beside(g, x, y + 1, r, keep):
+                                ladder(g, x, y + 1, r)
+                                fixed = True
+                            break
+                if fixed:
+                    break
+            if fixed:
+                break
+        if not fixed:
+            return False
+    return False
+
+
+# ---------------------------------------------------------------- styles
+
+def blank():
     g = [['.'] * COLS for _ in range(ROWS)]
     g[14] = ['S'] * COLS
-    gaps = {}                                       # band row -> gap columns
-    for f in BANDS:
+    return g
+
+
+def floor_run(g, rnd, P, r, c0, c1):
+    kind = 'S' if rnd.random() < P['stone'] else 'B'
+    for x in range(max(0, c0), min(COLS, c1)):
+        g[r][x] = kind
+
+
+def add_cables(g, rnd, P):
+    """cables across gaps between floors, in the row just above"""
+    for r in range(2, 14):
+        c = 1
+        while c < COLS:
+            if g[r][c] == '.' and g[r][c - 1] in SOLID:
+                e = c
+                while e < COLS and g[r][e] == '.':
+                    e += 1
+                if (e < COLS and g[r][e] in SOLID and 2 <= e - c <= 8
+                        and rnd.random() < P['cables']
+                        and all(g[r - 1][x] == '.' for x in range(c - 1, e + 1))):
+                    for x in range(c - 1, e + 1):
+                        g[r - 1][x] = '-'
+                c = e
+            c += 1
+
+
+def add_double(g, rnd, P):
+    """some brick floors two deep"""
+    if not P['double']:
+        return
+    for r in range(2, 12):
+        for x in range(COLS):
+            if (g[r][x] == 'B' and g[r + 1][x] == '.' and g[r - 1][x] == '.'
+                    and rnd.random() < P['double'] / 4):
+                for y in range(x, min(COLS, x + rnd.randint(3, 6))):
+                    if g[r][y] == 'B' and g[r + 1][y] == '.' and g[r + 2][y] == '.':
+                        g[r + 1][y] = 'B'
+
+
+def style_floors(rnd, P):
+    """floors right across, at varying heights, with gaps"""
+    g = blank()
+    rows, r = [], rnd.randint(2, 3)
+    while r <= 11:
+        rows.append(r)
+        r += rnd.choice((3, 3, 3, 4, 2)) if r < 10 else 4
+    for f in rows:
         c = 0
-        gaps[f] = []
-        while c < COLS:                             # runs of floor and gaps
+        while c < COLS:
             run = rnd.randint(4, 12)
-            kind = 'S' if rnd.random() < P['stone'] else 'B'
-            for x in range(c, min(COLS, c + run)):
-                g[f][x] = kind
+            floor_run(g, rnd, P, f, c, c + run)
             c += run
             if c < COLS and rnd.random() < P['gaps'] * 3:
-                w = rnd.randint(1, 4)
-                gaps[f].append((c, min(COLS, c + w)))
-                c += w
-        # some brick runs two deep (the row under the floor)
-        if P['double'] and f + 1 < 14:
-            for x in range(COLS):
-                if g[f][x] == 'B' and rnd.random() < P['double'] and x % 6 == 0:
-                    for y in range(x, min(COLS, x + rnd.randint(3, 6))):
-                        if g[f][y] == 'B':
-                            g[f + 1][y] = 'B'
-    # ladders between neighbouring bands (and from the bottom to the lowest)
-    levels = [0] + BANDS + [14]                     # 0: the top row's "floor"
+                c += rnd.randint(1, 4)
+    levels = [0] + rows + [14]
     for i in range(1, len(levels) - 1):
-        top, bot = levels[i], levels[i + 1]         # ladder from floor top down to bot
-        count = 1 + rnd.randint(0, P['ladders'])
-        cols = []
-        for _ in range(50):                         # spread out, never side by side
+        top, bot = levels[i], levels[i + 1]
+        want, cols = 1 + rnd.randint(0, P['ladders']), []
+        for _ in range(50):
             x = rnd.randint(1, COLS - 2)
             if all(abs(x - y) > 3 for y in cols):
                 cols.append(x)
-            if len(cols) == count:
+            if len(cols) == want:
                 break
         for x in cols:
             if g[bot][x] not in SOLID:
-                g[bot][x] = 'B'                     # something to stand on at its foot
-            for y in range(top, bot):
-                g[y][x] = 'H'
-    # cables over some gaps, in the row just above the floor
-    for f in BANDS:
-        for (a, b) in gaps[f]:
-            if rnd.random() < P['cables'] and b - a >= 2:
-                for x in range(max(0, a - 1), min(COLS, b + 1)):
-                    if g[f - 1][x] == '.':
-                        g[f - 1][x] = '-'
-    return g, rnd, P
+                g[bot][x] = 'B'
+            ladder(g, x, top, bot - 1)
+    return g
 
 
-def place(g, rnd, P, n):
-    """the hero, the exit, the geodes, the thieves; None if the level is poor"""
-    starts = [(13, c) for c in range(COLS) if standing(g, (13, c))]
-    if not starts:
+def style_ledges(rnd, P):
+    """many short ledges at staggered heights"""
+    g = blank()
+    for _ in range(rnd.randint(14, 22)):
+        for _ in range(30):
+            r, w = rnd.randint(2, 12), rnd.randint(3, 9)
+            c = rnd.randint(0, COLS - w)
+            span = range(max(0, c - 1), min(COLS, c + w + 1))
+            if all(g[y][x] == '.' for y in (r - 1, r, r + 1) for x in span):
+                floor_run(g, rnd, P, r, c, c + w)
+                break
+    return g
+
+
+def style_rooms(rnd, P):
+    """floors cut into rooms by stone walls"""
+    g = style_floors(rnd, P)
+    floors = [r for r in range(1, 14) if sum(ch in SOLID for ch in g[r]) > COLS // 2]
+    levels = floors + [14]
+    for i in range(len(levels) - 1):
+        top, bot = levels[i], levels[i + 1]
+        if bot - top < 3:
+            continue
+        for _ in range(rnd.randint(1, 2)):
+            x = rnd.randint(4, COLS - 5)
+            if any(g[y][x] == 'H' for y in range(top, bot)):
+                continue
+            for y in range(top + 1, bot):
+                g[y][x] = 'S'
+    return g
+
+
+def style_pyramid(rnd, P):
+    """a brick pyramid with chambers inside, ledges around it"""
+    g = style_ledges(rnd, dict(P, stone=P['stone'] / 2))
+    cx, top = rnd.randint(10, 21), rnd.randint(4, 6)
+    for r in range(top, 14):
+        half = (r - top) + 1
+        for x in range(cx - half, cx + half + 1):
+            if 0 <= x < COLS:
+                g[r][x] = 'S' if (r - top) % 3 == 2 and rnd.random() < P['stone'] else 'B'
+    for x in range(cx - 1, cx + 2):                 # headroom on top
+        g[top - 1][x] = '.'
+    for _ in range(rnd.randint(2, 4)):              # chambers: hollow pockets
+        r = rnd.randint(top + 2, 12)
+        half = r - top
+        w = rnd.randint(2, 4)
+        x0 = rnd.randint(cx - half + 2, max(cx - half + 2, cx + half - 2 - w))
+        for x in range(x0, x0 + w):
+            if g[r + 1][x] in SOLID:
+                g[r][x] = '.'
+    return g
+
+
+def style_cavern(rnd, P):
+    """tunnels and shafts dug out of solid rock"""
+    g = blank()
+    for r in range(2, 14):
+        for x in range(COLS):
+            g[r][x] = 'B'
+    for _ in range(int(40 * P['stone']) + 3):       # stone seams
+        r, x, w = rnd.randint(3, 13), rnd.randint(0, COLS - 1), rnd.randint(2, 6)
+        for k in range(x, min(COLS, x + w)):
+            g[r][k] = 'S'
+    tunnels, r = [], rnd.randint(3, 4)
+    while r <= 13:
+        tunnels.append(r)
+        r += rnd.choice((2, 3, 3))
+    for t in tunnels:                               # each tunnel: segments
+        c = rnd.randint(0, 4)
+        while c < COLS:
+            w = rnd.randint(5, 16)
+            for x in range(c, min(COLS, c + w)):
+                g[t][x] = '.'
+            c += w + rnd.randint(2, 5)
+    for i in range(len(tunnels) - 1):               # shafts between tunnels
+        for _ in range(rnd.randint(1, 2)):
+            x = rnd.randint(1, COLS - 2)
+            if g[tunnels[i]][x] == '.' and g[tunnels[i + 1]][x] == '.':
+                ladder(g, x, tunnels[i] + 1, tunnels[i + 1])
+    return g
+
+
+def load_font():
+    """the engine's 3x5 font (engine/tools/mkfont.py)"""
+    src = open(os.path.join(HERE, '..', 'engine', 'tools', 'mkfont.py')).read()
+    font = {}
+    exec(src[src.index('G = {'):src.index('}', src.index('G = {')) + 1], font)
+    return font['G']
+
+
+def style_word(rnd, P, words):
+    """words spelled in ladders and brick, to climb about on: two lines of
+    up to 4 letters, each letter pixel two cells across and a row down;
+    vertical strokes are ladders, horizontal ones brick floor"""
+    font = load_font()
+    g = blank()
+    keep = set()
+    for line, word in enumerate(words):
+        top = 2 + 6 * line
+        x0 = (COLS - (len(word) * 8 - 2)) // 2
+        for i, ch in enumerate(word):
+            rows = font[ch].split()
+            keep.update((top + yy, x0 + i * 8 + xx) for yy in range(5) for xx in range(6))
+
+            def on(yy, xx):
+                return 0 <= yy < 5 and 0 <= xx < 3 and rows[yy][xx] == '#'
+            for gy in range(5):
+                for gx in range(3):
+                    if not on(gy, gx):
+                        continue
+                    x, y = x0 + i * 8 + gx * 2, top + gy
+                    if on(gy - 1, gx) or on(gy + 1, gx):    # a vertical stroke
+                        g[y][x] = 'H'
+                        if not on(gy, gx + 1) and not on(gy, gx - 1):
+                            pass
+                        else:
+                            g[y][x + 1] = 'B'               # (and a horizontal one)
+                        if not on(gy + 1, gx):              # its foot
+                            if y + 1 == 13:
+                                g[13][x] = 'H'
+                            elif g[y + 1][x] == '.':
+                                g[y + 1][x] = 'B'
+                    else:                                   # a horizontal stroke
+                        g[y][x] = g[y][x + 1] = 'B'
+    # ledges in the space around the text
+    near = {(y + dy, x + dx) for (y, x) in keep for dy in (-1, 0, 1) for dx in (-2, -1, 0, 1, 2)}
+    for _ in range(30):
+        for _ in range(30):
+            r, w = rnd.randint(2, 12), rnd.randint(3, 6)
+            c = rnd.randint(0, COLS - w)
+            span = range(max(0, c - 1), min(COLS, c + w + 1))
+            if all(g[y][x] == '.' and (y, x) not in near for y in (r - 1, r, r + 1) for x in span):
+                floor_run(g, rnd, P, r, c, c + w)
+                break
+    # ways in: ladders the full height either side of the text; the rows
+    # above each line of letters are walkways along their tops
+    xs = [x for (y, x) in keep]
+    for x in (min(xs) - 2, max(xs) + 2):
+        if 0 <= x < COLS:
+            ladder(g, x, 1, 13)
+    return g, keep
+
+
+def mirror(g):
+    for r in range(ROWS):
+        for x in range(COLS // 2):
+            g[r][COLS - 1 - x] = g[r][x]
+    return g
+
+
+STYLES = {'floors': style_floors, 'ledges': style_ledges, 'rooms': style_rooms,
+          'pyramid': style_pyramid, 'cavern': style_cavern}
+
+
+def style_for(n):
+    """the style of level n"""
+    if n % 10 == 0:
+        return 'word'
+    if n <= 4:
+        return 'floors'
+    choices = ['floors', 'ledges', 'rooms']
+    if n > 10:
+        choices += ['pyramid', 'ledges']
+    if n > 15:
+        choices += ['cavern', 'rooms']
+    return random.Random(n * 31 + 7).choice(choices)
+
+
+# ---------------------------------------------------------------- a level
+
+def place(g, rnd, P, start):
+    """the exit, the geodes, the thieves: (score, level) or None if poor"""
+    out, both = two_way(g, start)
+    stand = [p for p in stand_cells(g) if p in both and p != start]
+    if len(stand) < 40:
         return None
-    hero = rnd.choice(starts)
-    out = reach(g, hero)
-    if len(out) < 120:
-        return None
-    # cells he can reach and come back from
-    both = [p for p in out if hero in reach(g, p)]
-    stand = [p for p in both if standing(g, p) and p != hero]
-    nodig = reach(g, hero, dig=False)
+    nodig = reach(g, start, dig=False)
     needdig = [p for p in stand if p not in nodig]
     easy = [p for p in stand if p in nodig]
     k = min(P['dig_geodes'], len(needdig))
     if len(easy) < P['geodes'] - k:
         return None
     geodes = rnd.sample(needdig, k) + rnd.sample(easy, P['geodes'] - k)
-    # the exit: a column climbing from a reachable standing cell to the top
-    cands = [p for p in both if standing(g, p) and p[0] <= 7 and p not in geodes]
+    # the exit: a column climbing from a two-way cell to the top
+    cands = [p for p in both if standing(g, p) and p[0] <= 9 and p not in geodes]
     rnd.shuffle(cands)
-    exit_col = None
-    for (r, c) in cands:
-        if all(at(g, y, c) in '.B' for y in range(0, r)):
-            exit_col = (r, c)
-            break
-    if not exit_col:
+    exit_at = None
+    for (r, c) in cands[:40]:
+        if all(at(g, y, c) in '.B-S' for y in range(0, r)):
+            opened = [row[:] for row in g]
+            for y in range(0, r + 1):
+                opened[y][c] = 'X'
+            if (0, c) in reach(opened, start):
+                exit_at = (r, c)
+                break
+    if not exit_at:
         return None
-    # thieves: reachable standing cells away from the hero
-    far = [p for p in stand if abs(p[1] - hero[1]) + 3 * abs(p[0] - hero[0]) > 12
+    far = [p for p in stand if abs(p[1] - start[1]) + 3 * abs(p[0] - start[0]) > 12
            and p not in geodes]
-    if len(far) < P['thieves']:
-        return None
-    thieves = []
     rnd.shuffle(far)
-    for p in far:                                   # not side by side
+    thieves = []
+    for p in far:
         if all(abs(p[1] - q[1]) > 2 or p[0] != q[0] for q in thieves):
             thieves.append(p)
         if len(thieves) == P['thieves']:
@@ -211,33 +495,58 @@ def place(g, rnd, P, n):
         lv[r][c] = 'T'
     for (r, c) in thieves:
         lv[r][c] = 'E'
-    lv[hero[0]][hero[1]] = 'P'
-    r, c = exit_col
+    lv[start[0]][start[1]] = 'P'
+    r, c = exit_at
     for y in range(0, r + 1):
         if lv[y][c] == '.':
             lv[y][c] = 'X'
-    # with the exit open (its bricks become ladder), the top must be reachable
-    opened = [row[:] for row in g]
-    for y in range(0, r + 1):
-        opened[y][c] = 'X'
-    if (0, c) not in reach(opened, hero):
+    score = len(stand) + 3 * len(needdig) + rnd.random()    # interest
+    return score, lv
+
+
+def candidate(n, seed):
+    rnd = random.Random(seed)
+    P = params(n)
+    style = style_for(n)
+    keep = ()
+    if style == 'word':
+        g, keep = style_word(rnd, P, WORDS[(n // 10 - 1) % len(WORDS)])
+    else:
+        g = STYLES[style](rnd, P)
+        if n > 12 and style != 'cavern' and rnd.random() < 0.3:
+            g = mirror(g)
+            style += ', mirrored'
+        add_cables(g, rnd, P)
+        add_double(g, rnd, P)
+    starts = [(13, c) for c in range(COLS) if standing(g, (13, c))]
+    if not starts:
         return None
-    return lv
+    start = rnd.choice(starts)
+    # (a word level may keep some letter floors out of reach: its geodes
+    # still go only where the hero can get to and back from)
+    if not repair(g, rnd, start, keep=keep, slack=4 if keep else 20) and not keep:
+        return None
+    got = place(g, rnd, P, start)
+    return got and (got[0], got[1], style)
 
 
-def level(n):
-    """level n: 15 strings of 32 cells (retries with the next seed if poor)"""
-    for attempt in range(200):
-        g, rnd, P = build(n + attempt * 100003)
-        P = params(n)
-        lv = place(g, rnd, P, n)
-        if lv:
-            return [''.join(row) for row in lv]
-    raise RuntimeError('no level %d' % n)
+def level(n, want=4):
+    """level n: (15 strings of 32 cells, its style), the best of a few
+    candidates"""
+    best = None
+    for attempt in range(80):
+        got = candidate(n, n * 7919 + attempt * 104729)
+        if got and (best is None or got[0] > best[0]):
+            best = got
+        if best and attempt >= want:
+            break
+    if not best:
+        raise RuntimeError('no level %d' % n)
+    return [''.join(row) for row in best[1]], best[2]
 
 
 def sheet(out, numbers):
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'mockups'))
+    sys.path.insert(0, os.path.join(HERE, '..', 'mockups'))
     from plat_cg6 import render, image
     from PIL import Image, ImageDraw
     cols = 4
@@ -246,14 +555,14 @@ def sheet(out, numbers):
     S = Image.new('RGB', (cols * (cw + 12) + 12, rows * (ch + 28) + 12), (24, 24, 24))
     d = ImageDraw.Draw(S)
     for i, n in enumerate(numbers):
-        lv = level(n)
+        lv, style = level(n)
         status = "SCORE 000000  LEVEL %03d  LIVES 3" % n
         im = image(render(lv, status)).resize((cw, ch), Image.NEAREST)
         x, y = 12 + (i % cols) * (cw + 12), 12 + (i // cols) * (ch + 28)
         S.paste(im, (x, y))
         P = params(n)
-        d.text((x, y + ch + 6), "level %d: %d geodes (%d by digging), %d thieves"
-               % (n, P['geodes'], P['dig_geodes'], P['thieves']), fill=(220, 220, 220))
+        d.text((x, y + ch + 6), "level %d (%s): %d geodes (%d by digging), %d thieves"
+               % (n, style, P['geodes'], P['dig_geodes'], P['thieves']), fill=(220, 220, 220))
     S.save(out)
 
 
@@ -262,5 +571,6 @@ if __name__ == '__main__':
         sheet(sys.argv[2], [int(a) for a in sys.argv[3:]])
     else:
         for a in sys.argv[1:]:
-            print('level', a)
-            print('\n'.join(level(int(a))))
+            lv, style = level(int(a))
+            print('level', a, style)
+            print('\n'.join(lv))
