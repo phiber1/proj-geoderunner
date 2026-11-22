@@ -11,8 +11,8 @@
 #                        run-mockup_blue, run-mockup_green: CG6
 #   make sheet           build/levels.png: a contact sheet of generated levels
 #                        (tools/levelgen.py; LEVELS="1 2 3 ..." to choose)
-#   make levels          build/LEVELS.DAT: levels 1-9999 (NLEVELS=...), a few
-#                        minutes; the game reads its levels from it
+#   make levels          build/LEVELS.DAT: the game's 150 levels (NLEVELS=...);
+#                        the game reads its levels from it
 #   make DEBUG=0         release build: no debug-port writes
 #
 # On the SD card the game is GEODE.BIN (RUNM"GEODE").
@@ -66,16 +66,16 @@ build/mockup_%.s: src/mockup.asm build/mockup_%.inc $(ENGSRC) | build
 	$(CC) $(CPPFLAGS) -DMK_CG6 -DMK_SCR='"mockup_$*.inc"' $(CPPDEFS) $< -o $@
 
 # The level generator's contact sheet
-LEVELS  ?= 1 3 5 8 10 12 15 21 25 33 36 60
+LEVELS  ?= 1 3 5 8 10 15 21 33 47 88 123 150
 sheet: tools/levelgen.py mockups/plat_cg6.py | build
 	python3 tools/levelgen.py --sheet build/levels.png $(LEVELS)
 
 # The level file: every level, made once by the generator
-NLEVELS ?= 9999
+NLEVELS ?= 150
 levels: build/LEVELS.DAT
 build/LEVELS.DAT: tools/levelgen.py | build
 	python3 tools/levelgen.py --dat $@ $(NLEVELS)
-	python3 tools/levelgen.py --check $@ 1 2 3 10 100 1000 $(NLEVELS)
+	python3 tools/levelgen.py --check $@ 1 2 3 10 75 100 $(NLEVELS)
 
 # The sprite viewer (the engine's), in the sprite file's mode
 VIEW    ?= sprites/geode.spr

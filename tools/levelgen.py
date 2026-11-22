@@ -26,7 +26,7 @@ kept.
 
     python3 tools/levelgen.py N [N2 ...]     print levels
     python3 tools/levelgen.py --sheet OUT.png N1 N2 ...   a contact sheet
-    python3 tools/levelgen.py --dat OUT COUNT     levels 1..COUNT as a level file
+    python3 tools/levelgen.py --dat OUT COUNT     levels 1..COUNT as a level file (the game: 150)
     python3 tools/levelgen.py --check FILE N...   compare a level file with the generator
 
 The level file (LEVELS.DAT on the SD card): a 16-byte header, "GR", a
@@ -43,7 +43,8 @@ COLS, ROWS = 32, 15
 SOLID = 'BS'
 WORDS = [('DIG', 'DEEP'), ('MC10', '1983'), ('GEMS', 'RUN'), ('ROCK', 'ON'),
          ('CAVE', 'IN'), ('HI', 'MOM'), ('LOOT', 'DIG'), ('GO', 'WEST'),
-         ('OH', 'NO'), ('GEO', 'DES'), ('BLRP', '!'), ('THE', 'END?')]
+         ('OH', 'NO'), ('GEO', 'DES'), ('BLRP', '!'), ('HALF', 'WAY?'),
+         ('DONT', 'STOP'), ('THE', 'END?'), ('LAST', 'ONE!')]    # levels 10, 20 ... 150
 HERE = os.path.dirname(os.path.abspath(__file__))
 CODES = '.BSH-TPEX'                 # a cell's code in the level file: its index
 HEADER, RECORD = 16, 240
@@ -51,7 +52,7 @@ HEADER, RECORD = 16, 240
 
 def params(n):
     """difficulty for level n (1 = easiest)"""
-    t = min(1.0, (n - 1) / 80)              # ramps up over the first 80 levels
+    t = min(1.0, (n - 1) / 120)             # ramps up over the first 120 of 150
     return dict(
         t=t,
         stone=0.08 + 0.32 * t,              # share of floor that is stone
@@ -62,7 +63,7 @@ def params(n):
         geodes=6 + int(6 * t),
         dig_geodes=0 if n < 4 else 1 + int(3 * t),       # geodes only digging reaches
         thieves=min(5, 1 + n // 6),
-        bottom=0.0 if n < 40 else min(1.0, (n - 40) / 40),  # stone in the bottom floor
+        bottom=0.0 if n < 60 else min(1.0, (n - 60) / 60),  # stone in the bottom floor
     )
 
 
