@@ -1,0 +1,38 @@
+# geode.spr: Geode Runner's sprites, CG6 (CSS=0) on a blue background.
+# G green, Y yellow, B blue, R red; "." is transparent.  "bg B": halos
+# and erases fill with the background blue.
+
+sprite hero cg6 halo 1 bg B
+..GG..
+.GGGG.
+.YYYY.
+.Y.YY.
+..YY..
+GGGGGG
+Y.GG.Y
+..GG..
+.G..G.
+GG..GG
+end
+
+sprite thief cg6 halo 1 bg B
+R....R
+.RRRR.
+RRRRRR
+RYRRYR
+RRRRRR
+.RRRR.
+RRRRRR
+R.RR.R
+..RR..
+.R..R.
+RR..RR
+end
+
+sprite geode cg6 halo 1 bg B
+..YY..
+.YYYY.
+YYRRYY
+.YRRY.
+..YY..
+end
