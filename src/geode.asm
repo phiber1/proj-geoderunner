@@ -3,8 +3,9 @@
 ;
 ; So far: a level is read from LEVELS.DAT on the SD card (tools/levelgen.py
 ; makes it: a 16-byte header, then 240 bytes a level, 4 bits a cell) and
-; drawn, with the hero and the guards at their starting places.  SPACE
-; shows the next level.
+; drawn, with the guards at their starting places; the hero runs, climbs,
+; hangs and falls (W A S Z or the arrow keys).  SPACE shows the next level
+; (for now).
 
 #define GFX_MODE GFX_CG6
 #define GFX_BG CG_BLUE
@@ -51,7 +52,28 @@ dc_m            rmb     2               ; ... its map byte,
 dc_t            rmb     2               ; ... its tile's bytes,
 dc_s            rmb     2               ; ... its place on the screen
 key_was         rmb     1
+joy_force       rmb     1               ; debug builds: nonzero = held keys (tests)
 st_n            rmb     1               ; status: digits
+h_r             rmb     1               ; hero.inc: the cell he's on or moving to
+h_c             rmb     1
+h_x             rmb     1               ; ... his pixel place,
+h_y             rmb     1
+h_ox            rmb     1               ; ... where he was drawn,
+h_oy            rmb     1
+h_t             rmb     1               ; ... frames left of the move,
+h_dir           rmb     1               ; ... the move (D_*),
+h_fall          rmb     1               ; ... nonzero while falling
+hu_here         rmb     1               ; ... the cell he's on, the one below
+hu_below        rmb     1
+ca_c            rmb     1               ; cell_at
+ca_p            rmb     2
+rs_x            rmb     1               ; restore
+rs_y            rmb     1
+rs_c0           rmb     1
+rs_c1           rmb     1
+rs_c            rmb     1
+rs_r            rmb     1
+rs_r1           rmb     1
 
                 org     CODE
 start:
@@ -61,6 +83,7 @@ start:
                 ldaa    #1
                 staa    level
                 clr     key_was
+                clr     joy_force
                 jsr     frame_init
 new_level:
                 jsr     lv_load         ; the level from the SD card
@@ -69,12 +92,21 @@ new_level:
                 jsr     gfx_cls
                 jsr     lv_draw
                 jsr     status_draw
+                jsr     hero_init
                 jsr     actors_draw
 loop:
                 jsr     frame_wait
                 jsr     snd_frame
-                jsr     kbd_read        ; SPACE: the next level
-                ldaa    joy
+                jsr     kbd_read
+                if      DEBUG           ; (tests poke joy_force to hold keys)
+                ldaa    joy_force
+                beq     dbg_f1
+                staa    joy
+dbg_f1:
+                endif
+                jsr     hero_update
+                jsr     hero_draw
+                ldaa    joy             ; SPACE: the next level
                 anda    #J_FIRE
                 tab
                 eora    key_was         ; (on the press)
@@ -367,14 +399,19 @@ sd_f2:          staa    st_n
 
 ; the hero and the guards, at their start cells
 actors_draw:
-                ldd     hero_r
+                bsr     guards_draw
+                ldaa    h_x
+                jsr     sprite_x
+                ldab    h_y
                 ldx     #hero_hr
-                bsr     actor_at
+                jmp     spr_art
+
+guards_draw:
                 ldaa    nguard
                 staa    st_n
                 ldx     #guard_rc
-ad_b1:          tst     st_n
-                beq     ad_r
+gd_b1:          tst     st_n
+                beq     gd_r
                 stx     dc_m
                 ldd     0,x
                 ldx     #guard_hr
@@ -383,24 +420,31 @@ ad_b1:          tst     st_n
                 inx
                 inx
                 dec     st_n
-                bra     ad_b1
-ad_r:           rts
+                bra     gd_b1
+gd_r:           rts
 
 ; actor_at: A = row, B = column, X = a sprite's draw table: draw it there
-; (centered on the cell: x = column*4 - 1, but not left of the screen)
 actor_at:
                 inca                    ; y = (row + 1) * 12
                 psha
+                aslb                    ; x = column * 4, centered
                 aslb
-                aslb
-                beq     aa_f1
-                decb
-aa_f1:          pula
+                tba
+                jsr     sprite_x
+                tab
+                pula
                 pshb
                 ldab    #12
-                mul                     ; B = y (< 256)
+                mul                     ; B = y
                 pula                    ; A = x
                 jmp     spr_art
+
+fx_step:        fcb     1, SND_NOISE    ; a footstep: a click
+                fdb     700, 0
+                fcb     0
+fx_land:        fcb     3, SND_NOISE    ; landing: a thump
+                fdb     1400, 200
+                fcb     0
 
 s_file:         fcc     "LEVELS.DAT"
 S_FILE_LEN      equ     *-s_file
@@ -411,6 +455,7 @@ s_score:        fcc     "SCORE 000000  LEVEL "
 s_lives:        fcc     "  LIVES 3"
                 fcb     0
 
+#include "hero.inc"
 #include "gfx.asm"
 #include "frame.asm"
 #include "sound.asm"
