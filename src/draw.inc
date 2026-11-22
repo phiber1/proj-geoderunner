@@ -35,10 +35,10 @@ cell_tile:
                 abx
                 ldaa    0,x
                 rts
-ct_brick:       ldaa    #T_BRICK_TOP
-                ldab    dc_r
-                cmpb    #LV_ROWS-1
-                beq     ct_f1
+ct_brick:       ldaa    #T_BRICK_TOP    ; (the bottom row: solid to the
+                ldab    dc_r            ; bottom, so a hole there is deep
+                cmpb    #LV_ROWS-1      ; enough to stand in)
+                beq     ct_r
                 ldab    LV_COLS,x
                 cmpb    #C_BRICK
                 beq     ct_r
