@@ -53,6 +53,7 @@ def params(n):
         geodes=6 + int(6 * t),
         dig_geodes=0 if n < 4 else 1 + int(3 * t),       # geodes only digging reaches
         thieves=min(5, 1 + n // 6),
+        bottom=0.0 if n < 40 else min(1.0, (n - 40) / 40),  # stone in the bottom floor
     )
 
 
@@ -428,6 +429,18 @@ def style_word(rnd, P, words):
     return g, keep
 
 
+def bottom_floor(g, rnd, P):
+    """the bottom floor: brick (holes dug there trap thieves), stone mixing
+    in on higher levels"""
+    c = 0
+    while c < COLS:
+        w = rnd.randint(4, 10)
+        kind = 'S' if rnd.random() < P['bottom'] else 'B'
+        for x in range(c, min(COLS, c + w)):
+            g[14][x] = kind
+        c += w
+
+
 def mirror(g):
     for r in range(ROWS):
         for x in range(COLS // 2):
@@ -522,6 +535,7 @@ def candidate(n, seed):
             style += ', mirrored'
         add_cables(g, rnd, P)
         add_double(g, rnd, P)
+    bottom_floor(g, rnd, P)
     starts = [(13, c) for c in range(COLS) if standing(g, (13, c))]
     if not starts:
         return None
