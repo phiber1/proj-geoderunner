@@ -2,25 +2,236 @@
 # G green, Y yellow, B blue, R red; "." is transparent.
 #
 # "halo 0": masked sprites, drawing only their own pixels, so the ladders
-# and bricks behind them show through; the game erases a sprite by
-# redrawing the tiles under it.  12 rows, the height of a cell.
+# and bricks behind them show through.  12 rows, the height of a cell.
+# Poses: r0/r1 walking right (stride, legs together), l0/l1 the same
+# facing left, c0/c1 climbing, h0/h1 hand over hand on a cable, f falling.
 
-sprite hero cg6 halo 0 bg B
-..GG..
-.GGGG.
-.YYYY.
-.Y.YY.
-..YY..
-GGGGGG
-Y.GG.Y
-..GG..
-.G..G.
-.G..G.
-GG..GG
+sprite hero_r0 cg6 halo 0 bg B
+..GGG.
+.GGGGG
+..YY.Y
+..YYYY
+...YY.
+..GGG.
+.YGGGY
+..GGG.
+..G.G.
+.G...G
+G....G
 ......
 end
 
-sprite guard cg6 halo 0 bg B
+sprite hero_l0 cg6 halo 0 bg B
+.GGG..
+GGGGG.
+Y.YY..
+YYYY..
+.YY...
+.GGG..
+YGGGY.
+.GGG..
+.G.G..
+G...G.
+G....G
+......
+end
+
+sprite hero_r1 cg6 halo 0 bg B
+..GGG.
+.GGGGG
+..YY.Y
+..YYYY
+...YY.
+..GGG.
+..GGY.
+..GGG.
+..GG..
+..GG..
+..GGG.
+......
+end
+
+sprite hero_l1 cg6 halo 0 bg B
+.GGG..
+GGGGG.
+Y.YY..
+YYYY..
+.YY...
+.GGG..
+.YGG..
+.GGG..
+..GG..
+..GG..
+.GGG..
+......
+end
+
+sprite hero_c0 cg6 halo 0 bg B
+..GG..
+.GGGG.
+.GGGG.
+..YY..
+Y.GG..
+.GGGGY
+..GG..
+..GG..
+.G..G.
+.G...G
+.G....
+......
+end
+
+sprite hero_c1 cg6 halo 0 bg B
+..GG..
+.GGGG.
+.GGGG.
+..YY..
+..GG.Y
+YGGGG.
+..GG..
+..GG..
+.G..G.
+G...G.
+....G.
+......
+end
+
+sprite hero_h0 cg6 halo 0 bg B
+Y....Y
+.Y..Y.
+.YGGY.
+.GGGG.
+.YYYY.
+..YY..
+.GGGG.
+..GG..
+..GG..
+.G..G.
+.G..G.
+G....G
+end
+
+sprite hero_h1 cg6 halo 0 bg B
+Y....Y
+.Y..Y.
+.YGGY.
+.GGGG.
+.YYYY.
+..YY..
+.GGGG.
+..GG..
+..GG..
+..GG..
+..GG..
+..GG..
+end
+
+sprite hero_f cg6 halo 0 bg B
+Y.GG.Y
+YGGGGY
+.YYYY.
+.YYYY.
+..YY..
+.GGGG.
+..GG..
+..GG..
+.G..G.
+G....G
+......
+......
+end
+
+sprite guard_r0 cg6 halo 0 bg B
+R....R
+.RRRR.
+RRRRRR
+RRRYRY
+RRRRRR
+.RRRR.
+RRRRRR
+R.RR.R
+..RR..
+.R..R.
+R....R
+......
+end
+
+sprite guard_l0 cg6 halo 0 bg B
+R....R
+.RRRR.
+RRRRRR
+YRYRRR
+RRRRRR
+.RRRR.
+RRRRRR
+R.RR.R
+..RR..
+.R..R.
+R....R
+......
+end
+
+sprite guard_r1 cg6 halo 0 bg B
+R....R
+.RRRR.
+RRRRRR
+RRRYRY
+RRRRRR
+.RRRR.
+RRRRRR
+R.RR.R
+..RR..
+..RR..
+..RR..
+......
+end
+
+sprite guard_l1 cg6 halo 0 bg B
+R....R
+.RRRR.
+RRRRRR
+YRYRRR
+RRRRRR
+.RRRR.
+RRRRRR
+R.RR.R
+..RR..
+..RR..
+..RR..
+......
+end
+
+sprite guard_c0 cg6 halo 0 bg B
+R....R
+.RRRR.
+RRRRRR
+RRRRRR
+RRRRRR
+.RRRR.
+RRRRRR
+R.RR.R
+..RR..
+.R..R.
+R.....
+......
+end
+
+sprite guard_c1 cg6 halo 0 bg B
+R....R
+.RRRR.
+RRRRRR
+RRRRRR
+RRRRRR
+.RRRR.
+RRRRRR
+R.RR.R
+..RR..
+.R..R.
+.....R
+......
+end
+
+sprite guard_f cg6 halo 0 bg B
 R....R
 .RRRR.
 RRRRRR
@@ -31,6 +242,6 @@ RRRRRR
 R.RR.R
 ..RR..
 .R..R.
-RR..RR
+R....R
 ......
 end

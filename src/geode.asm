@@ -22,6 +22,17 @@ LV_RECORD       equ     LV_CELLS/2      ; bytes a level in the file
 LV_HEADER       equ     16
 MAX_GUARDS      equ     5
 
+; actor records and the shadow buffer (draw.inc)
+A_X             equ     0               ; place
+A_Y             equ     1
+A_OX            equ     2               ; ... where last drawn
+A_OY            equ     3
+A_SPR           equ     4               ; pose (a sprite's draw table)
+A_OSPR          equ     6               ; ... the pose last drawn
+A_SIZE          equ     8
+SH_MARGIN       equ     12              ; shadow rows above and below a patch,
+SH_ROWS         equ     36              ; for actors partly outside it
+
 ; cell codes, as in the level file
 C_AIR           equ     0
 C_BRICK         equ     1
@@ -36,6 +47,7 @@ C_EXIT          equ     8               ; the hidden exit ladder
                 org     LOW
 lv_buf          rmb     LV_RECORD       ; a level as read
 lv_map          rmb     LV_CELLS        ; ... and unpacked, a cell a byte
+shadow          rmb     (SH_ROWS+2*SH_MARGIN)*ROW_BYTES ; draw.inc: patches built here
 
                 org     BSS
 level           rmb     1               ; 1..NLEVELS
@@ -56,10 +68,12 @@ joy_force       rmb     1               ; debug builds: nonzero = held keys (tes
 st_n            rmb     1               ; status: digits
 h_r             rmb     1               ; hero.inc: the cell he's on or moving to
 h_c             rmb     1
-h_x             rmb     1               ; ... his pixel place,
-h_y             rmb     1
-h_ox            rmb     1               ; ... where he was drawn,
-h_oy            rmb     1
+hero_a          rmb     A_SIZE          ; ... his actor record (draw.inc)
+h_x             equ     hero_a+A_X      ; ... his pixel place,
+h_y             equ     hero_a+A_Y
+h_spr           equ     hero_a+A_SPR    ; ... his pose
+h_face          rmb     1               ; ... 0 facing right, 1 left
+h_on            rmb     1               ; ... 1 on a ladder, 2 on a cable
 h_t             rmb     1               ; ... frames left of the move,
 h_dir           rmb     1               ; ... the move (D_*),
 h_fall          rmb     1               ; ... nonzero while falling
@@ -67,13 +81,26 @@ hu_here         rmb     1               ; ... the cell he's on, the one below
 hu_below        rmb     1
 ca_c            rmb     1               ; cell_at
 ca_p            rmb     2
-rs_x            rmb     1               ; restore
-rs_y            rmb     1
-rs_c0           rmb     1
-rs_c1           rmb     1
-rs_c            rmb     1
-rs_r            rmb     1
-rs_r1           rmb     1
+guards          rmb     A_SIZE*MAX_GUARDS ; the guards' actor records
+dc_tl           rmb     1               ; draw.inc
+cp_a            rmb     2               ; act_update: the actor,
+cp_b            rmb     2               ; ... one being drawn into the shadow,
+cp_t            rmb     1
+cp_t2           rmb     2
+cp_c            rmb     1               ; ... the patch: its left byte,
+cp_r0           rmb     1               ; ... cell rows,
+cp_r1           rmb     1
+cp_top          rmb     1               ; ... top row and height,
+cp_n            rmb     1
+cp_org          rmb     2               ; ... the shadow's origin,
+cp_rr           rmb     1
+cp_k            rmb     1
+cp_rowd         rmb     2
+cp_g            rmb     1
+cp_gp           rmb     2
+cp_src          rmb     2               ; ... copying it to the screen
+cp_dst          rmb     2
+cp_sx           rmb     1
 
                 org     CODE
 start:
@@ -105,7 +132,9 @@ loop:
 dbg_f1:
                 endif
                 jsr     hero_update
-                jsr     hero_draw
+                jsr     hero_pose
+                ldx     #hero_a
+                jsr     act_update
                 ldaa    joy             ; SPACE: the next level
                 anda    #J_FIRE
                 tab
@@ -271,7 +300,7 @@ lv_draw:
 ld_b1:          clrb
 ld_b2:          pshb
                 psha
-                bsr     draw_cell
+                jsr     draw_cell
                 pula
                 pulb
                 incb
@@ -280,75 +309,6 @@ ld_b2:          pshb
                 inca
                 cmpa    #LV_ROWS
                 bne     ld_b1
-                rts
-
-; draw_cell: A = row, B = column: draw that cell's tile
-draw_cell:
-                staa    dc_r
-                stab    dc_c
-                ldab    #LV_COLS        ; its map byte: lv_map + row*32 + col
-                mul
-                addb    dc_c
-                adca    #0
-                addd    #lv_map
-                std     dc_m
-                ldx     dc_m
-                ldab    0,x
-                cmpb    #C_BRICK
-                beq     dc_brick
-                ldx     #celltile       ; the tile for the cell's code
-                abx
-                ldaa    0,x
-                bra     dc_tile
-dc_brick:       ldaa    #T_BRICK_TOP    ; brick: on top of more brick,
-                ldab    dc_r
-                cmpb    #LV_ROWS-1
-                beq     dc_b_f1
-                ldab    LV_COLS,x
-                cmpb    #C_BRICK
-                beq     dc_tile
-dc_b_f1:        ldaa    #T_BRICK_LOW    ; ... under brick,
-                ldab    dc_r
-                beq     dc_b_f2
-                dex                     ; (the cell above: X - 32)
-                ldab    #LV_COLS-1
-dc_b_b1:        dex
-                decb
-                bne     dc_b_b1
-                ldab    0,x
-                cmpb    #C_BRICK
-                beq     dc_tile
-dc_b_f2:        ldaa    #T_BRICK        ; ... or on its own
-dc_tile:        ldab    #12             ; its 12 bytes
-                mul
-                addd    #tiles
-                std     dc_t
-                ldx     #rowaddr        ; its place: the row's start + col
-                ldab    dc_r
-                aslb
-                abx
-                ldd     0,x
-                addb    dc_c
-                adca    #0
-                std     dc_s
-k               set     0
-                rept    8               ; rows 0-7
-                ldx     dc_t
-                ldaa    k,x
-                ldx     dc_s
-                staa    k*ROW_BYTES,x
-k               set     k+1
-                endm
-                ldd     dc_s            ; rows 8-11: 256 bytes on
-                inca
-                std     dc_s
-                rept    4
-                ldx     dc_t
-                ldaa    k,x
-                ldx     dc_s
-                staa    (k-8)*ROW_BYTES,x
-k               set     k+1
-                endm
                 rts
 
 ; a cell code's tile (brick is worked out from its neighbours)
@@ -397,50 +357,47 @@ sd_f2:          staa    st_n
                 ldd     #s_lives
                 jmp     txt_str2
 
-; the hero and the guards, at their start cells
+; the guards' records from their start cells, and everyone drawn
 actors_draw:
-                bsr     guards_draw
-                ldaa    h_x
-                jsr     sprite_x
-                ldab    h_y
-                ldx     #hero_hr
-                jmp     spr_art
-
-guards_draw:
                 ldaa    nguard
                 staa    st_n
                 ldx     #guard_rc
-gd_b1:          tst     st_n
-                beq     gd_r
-                stx     dc_m
-                ldd     0,x
-                ldx     #guard_hr
-                bsr     actor_at
-                ldx     dc_m
-                inx
-                inx
-                dec     st_n
-                bra     gd_b1
-gd_r:           rts
-
-; actor_at: A = row, B = column, X = a sprite's draw table: draw it there
-actor_at:
-                inca                    ; y = (row + 1) * 12
-                psha
-                aslb                    ; x = column * 4, centered
-                aslb
-                tba
-                jsr     sprite_x
-                tab
-                pula
-                pshb
+                stx     up_s
+                ldx     #guards
+                stx     up_d
+ad_b1:          tst     st_n
+                beq     ad_f1
+                ldx     up_s            ; x = column * 4, y = (row + 1) * 12
+                ldaa    1,x
+                asla
+                asla
+                ldx     up_d
+                staa    A_X,x
+                ldx     up_s
+                ldaa    0,x
+                inca
                 ldab    #12
-                mul                     ; B = y
-                pula                    ; A = x
-                jmp     spr_art
+                mul
+                ldx     up_d
+                stab    A_Y,x
+                ldd     #guard_r1_hr    ; standing
+                std     A_SPR,x
+                jsr     act_draw
+                ldx     up_s
+                inx
+                inx
+                stx     up_s
+                ldx     up_d
+                ldab    #A_SIZE
+                abx
+                stx     up_d
+                dec     st_n
+                bra     ad_b1
+ad_f1:          ldx     #hero_a
+                jmp     act_draw
 
-fx_step:        fcb     1, SND_NOISE    ; a footstep: a click
-                fdb     700, 0
+fx_step:        fcb     1, SND_TONE     ; a footstep: a soft click
+                fdb     1800, 0
                 fcb     0
 fx_land:        fcb     3, SND_NOISE    ; landing: a thump
                 fdb     1400, 200
@@ -456,6 +413,7 @@ s_lives:        fcc     "  LIVES 3"
                 fcb     0
 
 #include "hero.inc"
+#include "draw.inc"
 #include "gfx.asm"
 #include "frame.asm"
 #include "sound.asm"
