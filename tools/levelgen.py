@@ -242,7 +242,7 @@ def sheet(out, numbers):
     from PIL import Image, ImageDraw
     cols = 4
     rows = (len(numbers) + cols - 1) // cols
-    cw, ch = 128 * 2, 192 * 2
+    cw, ch = 128 * 4, 192 * 2                 # CG6 pixels are twice as wide as tall: 4:3
     S = Image.new('RGB', (cols * (cw + 12) + 12, rows * (ch + 28) + 12), (24, 24, 24))
     d = ImageDraw.Draw(S)
     for i, n in enumerate(numbers):
