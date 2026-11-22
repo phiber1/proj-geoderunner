@@ -20,7 +20,7 @@ GG..GG
 ......
 end
 
-sprite thief cg6 halo 0 bg B
+sprite guard cg6 halo 0 bg B
 R....R
 .RRRR.
 RRRRRR

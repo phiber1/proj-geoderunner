@@ -2,8 +2,8 @@
 
 A single-screen digging platformer for the TRS-80 MC-10, in CG6: four
 real colors at 128x192, so it looks the same on NTSC and PAL machines.
-Run, climb and dig through a cavern to collect every geode, while the
-thieves try to carry them off.  Built on
+Run, climb and dig through a cavern to collect every geode and escape
+upward, level after level, while the guards close in.  Built on
 [mc10-game-engine](https://github.com/phiber1/mc10-game-engine).
 
 **Status: early development.**  Nothing playable yet.

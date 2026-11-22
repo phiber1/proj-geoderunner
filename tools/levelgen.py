@@ -7,7 +7,7 @@ rows of 32 cells:
 
     .  air          B  brick (diggable)    S  stone (can't be dug)
     H  ladder       -  cable (hang from it, travel along, drop off)
-    T  a geode      P  the hero's start    E  a thief's start
+    T  a geode      P  the hero's start    E  a guard's start
     X  the hidden exit ladder (appears when every geode is collected)
 
 Levels come in styles, mixed more as the levels go up: floors, scattered
@@ -62,7 +62,7 @@ def params(n):
         double=0.0 if n < 8 else 0.15 + 0.35 * t,        # chance of two-deep brick
         geodes=6 + int(6 * t),
         dig_geodes=0 if n < 4 else 1 + int(3 * t),       # geodes only digging reaches
-        thieves=min(5, 1 + n // 6),
+        guards=min(5, 1 + n // 6),
         bottom=0.0 if n < 60 else min(1.0, (n - 60) / 60),  # stone in the bottom floor
     )
 
@@ -479,7 +479,7 @@ def style_word(rnd, P, words):
 
 
 def bottom_floor(g, rnd, P):
-    """the bottom floor: brick (holes dug there trap thieves), stone mixing
+    """the bottom floor: brick (holes dug there trap guards), stone mixing
     in on higher levels"""
     c = 0
     while c < COLS:
@@ -519,7 +519,7 @@ def style_for(n):
 # ---------------------------------------------------------------- a level
 
 def place(g, rnd, P, start):
-    """the exit, the geodes, the thieves: (score, level) or None if poor"""
+    """the exit, the geodes, the guards: (score, level) or None if poor"""
     out, both = two_way(g, start)
     stand = [p for p in stand_cells(g) if p in both and p != start]
     if len(stand) < 40:
@@ -548,18 +548,18 @@ def place(g, rnd, P, start):
     far = [p for p in stand if abs(p[1] - start[1]) + 3 * abs(p[0] - start[0]) > 12
            and p not in geodes]
     rnd.shuffle(far)
-    thieves = []
+    guards = []
     for p in far:
-        if all(abs(p[1] - q[1]) > 2 or p[0] != q[0] for q in thieves):
-            thieves.append(p)
-        if len(thieves) == P['thieves']:
+        if all(abs(p[1] - q[1]) > 2 or p[0] != q[0] for q in guards):
+            guards.append(p)
+        if len(guards) == P['guards']:
             break
-    if len(thieves) < P['thieves']:
+    if len(guards) < P['guards']:
         return None
     lv = [row[:] for row in g]
     for (r, c) in geodes:
         lv[r][c] = 'T'
-    for (r, c) in thieves:
+    for (r, c) in guards:
         lv[r][c] = 'E'
     lv[start[0]][start[1]] = 'P'
     r, c = exit_at
@@ -628,8 +628,8 @@ def sheet(out, numbers):
         x, y = 12 + (i % cols) * (cw + 12), 12 + (i // cols) * (ch + 28)
         S.paste(im, (x, y))
         P = params(n)
-        d.text((x, y + ch + 6), "level %d (%s): %d geodes (%d by digging), %d thieves"
-               % (n, style, P['geodes'], P['dig_geodes'], P['thieves']), fill=(220, 220, 220))
+        d.text((x, y + ch + 6), "level %d (%s): %d geodes (%d by digging), %d guards"
+               % (n, style, P['geodes'], P['dig_geodes'], P['guards']), fill=(220, 220, 220))
     S.save(out)
 
 

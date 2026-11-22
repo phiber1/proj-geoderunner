@@ -6,7 +6,7 @@ is a choice: blue (the engine's erase would write blue) or green (pixel
 value 0, what the engine erases to now).
 
 The grid stays 32 x 16, so a tile is 4 color pixels wide (each as wide as
-two mono pixels) by 12 rows; the hero and thieves are 6 pixels wide,
+two mono pixels) by 12 rows; the hero and guards are 6 pixels wide,
 centered on their cell.
 
     python3 mockups/plat_cg6.py blue|green

@@ -3,7 +3,7 @@
 ;
 ; So far: a level is read from LEVELS.DAT on the SD card (tools/levelgen.py
 ; makes it: a 16-byte header, then 240 bytes a level, 4 bits a cell) and
-; drawn, with the hero and the thieves at their starting places.  SPACE
+; drawn, with the hero and the guards at their starting places.  SPACE
 ; shows the next level.
 
 #define GFX_MODE GFX_CG6
@@ -19,7 +19,7 @@ LV_ROWS         equ     15
 LV_CELLS        equ     LV_COLS*LV_ROWS
 LV_RECORD       equ     LV_CELLS/2      ; bytes a level in the file
 LV_HEADER       equ     16
-MAX_THIEVES     equ     5
+MAX_GUARDS      equ     5
 
 ; cell codes, as in the level file
 C_AIR           equ     0
@@ -29,7 +29,7 @@ C_LADDER        equ     3
 C_CABLE         equ     4
 C_GEODE         equ     5
 C_HERO          equ     6               ; (start places: air once read)
-C_THIEF         equ     7
+C_GUARD         equ     7
 C_EXIT          equ     8               ; the hidden exit ladder
 
                 org     LOW
@@ -43,8 +43,8 @@ up_s            rmb     2               ; unpacking: from, to
 up_d            rmb     2
 hero_r          rmb     1               ; the hero's start cell
 hero_c          rmb     1
-nthief          rmb     1               ; the thieves' start cells (row, col)
-thief_rc        rmb     2*MAX_THIEVES
+nguard          rmb     1               ; the guards' start cells (row, col)
+guard_rc        rmb     2*MAX_GUARDS
 dc_r            rmb     1               ; draw_cell: the cell,
 dc_c            rmb     1
 dc_m            rmb     2               ; ... its map byte,
@@ -194,9 +194,9 @@ lv_unpack_b1:   ldx     up_s
                 bne     lv_unpack_b1
                 rts
 
-; the hero's and the thieves' start cells: noted, and made air
+; the hero's and the guards' start cells: noted, and made air
 lv_actors:
-                clr     nthief
+                clr     nguard
                 clr     dc_r
                 ldx     #lv_map
 la_b1:          clr     dc_c
@@ -207,18 +207,18 @@ la_b2:          ldaa    0,x
                 std     hero_r
                 clr     0,x
                 bra     la_f2
-la_f1:          cmpa    #C_THIEF
+la_f1:          cmpa    #C_GUARD
                 bne     la_f2
-                ldab    nthief
-                cmpb    #MAX_THIEVES
+                ldab    nguard
+                cmpb    #MAX_GUARDS
                 bcc     la_f2
                 stx     dc_m
-                ldx     #thief_rc
+                ldx     #guard_rc
                 abx
                 abx
                 ldd     dc_r
                 std     0,x
-                inc     nthief
+                inc     nguard
                 ldx     dc_m
                 clr     0,x
 la_f2:          inx
@@ -321,7 +321,7 @@ k               set     k+1
 
 ; a cell code's tile (brick is worked out from its neighbours)
 celltile:       fcb     T_AIR, T_BRICK, T_STONE, T_LADDER, T_CABLE, T_GEODE
-                fcb     T_AIR, T_AIR, T_AIR     ; hero, thief: sprites; the exit: hidden
+                fcb     T_AIR, T_AIR, T_AIR     ; hero, guard: sprites; the exit: hidden
 
 ; the screen address of each level row (the status line is row 0)
 rowaddr:
@@ -365,19 +365,19 @@ sd_f2:          staa    st_n
                 ldd     #s_lives
                 jmp     txt_str2
 
-; the hero and the thieves, at their start cells
+; the hero and the guards, at their start cells
 actors_draw:
                 ldd     hero_r
                 ldx     #hero_hr
                 bsr     actor_at
-                ldaa    nthief
+                ldaa    nguard
                 staa    st_n
-                ldx     #thief_rc
+                ldx     #guard_rc
 ad_b1:          tst     st_n
                 beq     ad_r
                 stx     dc_m
                 ldd     0,x
-                ldx     #thief_hr
+                ldx     #guard_hr
                 bsr     actor_at
                 ldx     dc_m
                 inx
