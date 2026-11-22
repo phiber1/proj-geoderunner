@@ -396,8 +396,8 @@ ad_b1:          tst     st_n
 ad_f1:          ldx     #hero_a
                 jmp     act_draw
 
-fx_step:        fcb     1, SND_TONE     ; a footstep: a low soft tick (~75 Hz)
-                fdb     6000, 0
+fx_step:        fcb     1, SND_TONE     ; a footstep: a faint low tick (~37 Hz)
+                fdb     12000, 0
                 fcb     0
 fx_land:        fcb     3, SND_NOISE    ; landing: a thump
                 fdb     1400, 200
