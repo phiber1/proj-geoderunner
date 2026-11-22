@@ -32,6 +32,11 @@ chambers, caverns dug out of solid rock, mirror images, and every 10th
 level a message spelled out in ladders.  Geodes are only placed where the
 hero can both reach and leave, so every level can be finished.
 
+`make levels` writes all 9999 levels to `build/LEVELS.DAT` (2.4 MB, 240
+bytes a level), which goes on the SD card with the game: starting a level
+reads its 240 bytes.  The generator uses its own random numbers, so the
+file comes out the same byte for byte every time it is built.
+
 ## Licence
 
 Public domain (Unlicense): see `LICENSE`.

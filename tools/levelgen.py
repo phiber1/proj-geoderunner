@@ -26,10 +26,17 @@ kept.
 
     python3 tools/levelgen.py N [N2 ...]     print levels
     python3 tools/levelgen.py --sheet OUT.png N1 N2 ...   a contact sheet
+    python3 tools/levelgen.py --dat OUT COUNT     levels 1..COUNT as a level file
+    python3 tools/levelgen.py --check FILE N...   compare a level file with the generator
+
+The level file (LEVELS.DAT on the SD card): a 16-byte header, "GR", a
+format number (1), a reserved byte, the number of levels (2 bytes, high
+first), 10 bytes of zeros; then each level, 240 bytes, at offset
+16 + 240 * (N - 1): its 15 rows of 32 cells, two cells a byte (the left
+one in the high nibble), with the codes in CODES below.
 
 Public domain (Unlicense)."""
 import os
-import random
 import sys
 
 COLS, ROWS = 32, 15
@@ -38,6 +45,8 @@ WORDS = [('DIG', 'DEEP'), ('MC10', '1983'), ('GEMS', 'RUN'), ('ROCK', 'ON'),
          ('CAVE', 'IN'), ('HI', 'MOM'), ('LOOT', 'DIG'), ('GO', 'WEST'),
          ('OH', 'NO'), ('GEO', 'DES'), ('BLRP', '!'), ('THE', 'END?')]
 HERE = os.path.dirname(os.path.abspath(__file__))
+CODES = '.BSH-TPEX'                 # a cell's code in the level file: its index
+HEADER, RECORD = 16, 240
 
 
 def params(n):
@@ -55,6 +64,45 @@ def params(n):
         thieves=min(5, 1 + n // 6),
         bottom=0.0 if n < 40 else min(1.0, (n - 40) / 40),  # stone in the bottom floor
     )
+
+
+# ---------------------------------------------------------------- randomness
+
+class Rng:
+    """the generator's own random numbers (xorshift32), so a level depends
+    only on this code and its number, never on the Python version"""
+
+    def __init__(self, seed):
+        self.s = (seed * 2654435761 + 0x9E3779B9) & 0xFFFFFFFF or 1
+        for _ in range(4):
+            self.next()
+
+    def next(self):
+        x = self.s
+        x ^= (x << 13) & 0xFFFFFFFF
+        x ^= x >> 17
+        x ^= (x << 5) & 0xFFFFFFFF
+        self.s = x
+        return x
+
+    def random(self):                   # [0, 1), exact in binary floating point
+        return self.next() / 4294967296
+
+    def randint(self, a, b):            # a..b inclusive
+        return a + self.next() % (b - a + 1)
+
+    def choice(self, seq):
+        return seq[self.randint(0, len(seq) - 1)]
+
+    def shuffle(self, lst):             # Fisher-Yates
+        for i in range(len(lst) - 1, 0, -1):
+            j = self.randint(0, i)
+            lst[i], lst[j] = lst[j], lst[i]
+
+    def sample(self, seq, k):
+        lst = list(seq)
+        self.shuffle(lst)
+        return lst[:k]
 
 
 # ---------------------------------------------------------------- movement
@@ -464,7 +512,7 @@ def style_for(n):
         choices += ['pyramid', 'ledges']
     if n > 30:
         choices += ['cavern', 'rooms']
-    return random.Random(n * 31 + 7).choice(choices)
+    return Rng(n * 31 + 7).choice(choices)
 
 
 # ---------------------------------------------------------------- a level
@@ -483,7 +531,7 @@ def place(g, rnd, P, start):
         return None
     geodes = rnd.sample(needdig, k) + rnd.sample(easy, P['geodes'] - k)
     # the exit: a column climbing from a two-way cell to the top
-    cands = [p for p in both if standing(g, p) and p[0] <= 9 and p not in geodes]
+    cands = [p for p in sorted(both) if standing(g, p) and p[0] <= 9 and p not in geodes]
     rnd.shuffle(cands)
     exit_at = None
     for (r, c) in cands[:40]:
@@ -522,7 +570,7 @@ def place(g, rnd, P, start):
 
 
 def candidate(n, seed):
-    rnd = random.Random(seed)
+    rnd = Rng(seed)
     P = params(n)
     style = style_for(n)
     keep = ()
@@ -584,8 +632,50 @@ def sheet(out, numbers):
     S.save(out)
 
 
+def encode(lv):
+    cells = [CODES.index(ch) for row in lv for ch in row]
+    return bytes((cells[i] << 4) | cells[i + 1] for i in range(0, len(cells), 2))
+
+
+def decode(rec):
+    cells = ''.join(CODES[b >> 4] + CODES[b & 15] for b in rec)
+    return [cells[r * COLS:(r + 1) * COLS] for r in range(ROWS)]
+
+
+def _one(n):
+    return encode(level(n)[0])
+
+
+def write_dat(out, count):
+    from multiprocessing import Pool
+    with Pool() as pool:
+        recs = pool.map(_one, range(1, count + 1), chunksize=16)
+    head = b'GR' + bytes([1, 0]) + count.to_bytes(2, 'big') + bytes(10)
+    with open(out, 'wb') as f:
+        f.write(head + b''.join(recs))
+
+
+def check_dat(path, numbers):
+    data = open(path, 'rb').read()
+    assert data[:3] == b'GR\x01', 'not a level file'
+    count = int.from_bytes(data[4:6], 'big')
+    bad = 0
+    for n in numbers:
+        if not 1 <= n <= count:
+            continue
+        rec = data[HEADER + RECORD * (n - 1):HEADER + RECORD * n]
+        if decode(rec) != level(n)[0]:
+            print('level', n, 'differs')
+            bad += 1
+    return bad
+
+
 if __name__ == '__main__':
-    if sys.argv[1] == '--sheet':
+    if sys.argv[1] == '--dat':
+        write_dat(sys.argv[2], int(sys.argv[3]))
+    elif sys.argv[1] == '--check':
+        sys.exit(1 if check_dat(sys.argv[2], [int(a) for a in sys.argv[3:]]) else 0)
+    elif sys.argv[1] == '--sheet':
         sheet(sys.argv[2], [int(a) for a in sys.argv[3:]])
     else:
         for a in sys.argv[1:]:
