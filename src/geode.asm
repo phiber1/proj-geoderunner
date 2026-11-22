@@ -7,8 +7,9 @@
 ; hangs and falls (W A S Z or the arrow keys), digs (SPACE, with A or S
 ; for a side) and collects the geodes (250 each); the last one makes the
 ; exit ladder grow, and climbing off the top finishes the level (1500 and
-; a life).  Three lives, one more for each level finished.
-; Debug builds: N shows the next level.
+; a life).  Three lives, one more for each level finished.  The guards
+; (guards.inc) chase him, fall into his holes (75), get buried (75) and
+; come back at the top.  Debug builds: N shows the next level.
 
 #define GFX_MODE GFX_CG6
 #define GFX_BG CG_BLUE
@@ -23,7 +24,7 @@ LV_ROWS         equ     15
 LV_CELLS        equ     LV_COLS*LV_ROWS
 LV_RECORD       equ     LV_CELLS/2      ; bytes a level in the file
 LV_HEADER       equ     16
-MAX_GUARDS      equ     5
+MAX_GUARDS      equ     4
 
 ; actor records and the shadow buffer (draw.inc)
 A_X             equ     0               ; place
@@ -33,6 +34,18 @@ A_OY            equ     3
 A_SPR           equ     4               ; pose (a sprite's draw table)
 A_OSPR          equ     6               ; ... the pose last drawn
 A_SIZE          equ     8
+G_R             equ     8               ; a guard's record goes on (guards.inc):
+G_C             equ     9               ; ... his cell,
+G_T             equ     10              ; ... frames left of the move,
+G_DIR           equ     11              ; ... the move,
+G_FACE          equ     12              ; ... facing left (1),
+G_ON            equ     13              ; ... on a ladder (1) or cable (2),
+G_ST            equ     14              ; ... free or trapped,
+G_TT            equ     15              ; ... frames left trapped,
+G_CARRY         equ     16              ; ... carrying a geode,
+G_CT            equ     17              ; ... frames left carrying it (2)
+G_OUT           equ     19              ; ... just climbed out of a hole
+GD_SIZE         equ     20
 SH_MARGIN       equ     12              ; shadow rows above and below a patch,
 SH_ROWS         equ     36              ; for actors partly outside it
 
@@ -63,6 +76,7 @@ C_FILL2         equ     12
 lv_buf          rmb     LV_RECORD       ; a level as read
 lv_map          rmb     LV_CELLS        ; ... and unpacked, a cell a byte
 shadow          rmb     (SH_ROWS+2*SH_MARGIN)*ROW_BYTES ; draw.inc: patches built here
+tmap            rmb     LV_CELLS        ; ... every cell's tile, as drawn
 
                 org     BSS
 level           rmb     1               ; 1..NLEVELS
@@ -80,6 +94,8 @@ dc_t            rmb     2               ; ... its tile's bytes,
 dc_s            rmb     2               ; ... its place on the screen
 key_was         rmb     1
 joy_force       rmb     1               ; debug builds: nonzero = held keys (tests)
+dbg_safe        rmb     1               ; ... nonzero: guards can't catch him (tests)
+dbg_loops       rmb     1               ; ... main loop passes (vs frame_count)
 st_n            rmb     1               ; status: digits
 h_r             rmb     1               ; hero.inc: the cell he's on or moving to
 h_c             rmb     1
@@ -96,7 +112,27 @@ hu_here         rmb     1               ; ... the cell he's on, the one below
 hu_below        rmb     1
 ca_c            rmb     1               ; cell_at
 ca_p            rmb     2
-guards          rmb     A_SIZE*MAX_GUARDS ; the guards' actor records
+guards          rmb     GD_SIZE*MAX_GUARDS ; the guards' records
+gs              rmb     GD_SIZE         ; guards.inc: the one being worked on
+gu_n            rmb     1
+gu_p            rmb     2
+gu_q            rmb     2
+gu_q2           rmb     2
+gd_here         rmb     1
+gd_below        rmb     1
+gd_goal         rmb     1
+gd_want         rmb     1
+gd_l            rmb     1
+gd_rr           rmb     1
+gd_lok          rmb     1
+gd_rok          rmb     1
+gd_wc           rmb     1
+gd_wh           rmb     1
+gd_wb           rmb     1
+gd_fr           rmb     2
+gd_m            rmb     2
+gd_rp           rmb     2
+seed            rmb     2
 h_dig           rmb     1               ; hero.inc: frames left digging
 h_dead          rmb     1               ; ... nonzero: a hole filled on him
 hu_dc           rmb     1               ; ... the side he digs (-1, 1)
@@ -124,6 +160,10 @@ cp_gp           rmb     2
 cp_src          rmb     2               ; ... copying it to the screen
 cp_dst          rmb     2
 cp_sx           rmb     1
+cp_w            rmb     1               ; ... its width in bytes
+cp_tp           rmb     2               ; ... its tiles' row in tmap
+cp_y0           rmb     1               ; ... the rows the actor covers
+cp_y1           rmb     1
 score           rmb     3               ; BCD
 lives           rmb     1
 g_left          rmb     1               ; geodes still to collect
@@ -141,6 +181,7 @@ start:
                 jsr     gfx_init
                 clr     key_was
                 clr     joy_force
+                clr     dbg_safe
                 jsr     frame_init
 new_game:
                 ldaa    #1
@@ -165,6 +206,9 @@ nl_f2:
                 jsr     actors_draw
 loop:
                 jsr     frame_wait
+                if      DEBUG
+                inc     dbg_loops
+                endif
                 jsr     snd_frame
                 jsr     kbd_read
                 if      DEBUG           ; (tests poke joy_force to hold keys)
@@ -179,7 +223,15 @@ dbg_f1:
                 jsr     hero_pose
                 ldx     #hero_a
                 jsr     act_update
-                tst     h_dead          ; a hole filled on him
+                jsr     guards_update
+                if      DEBUG
+                tst     dbg_safe
+                bne     lp_f0
+                endif
+                jsr     caught          ; a guard got him
+                beq     lp_f0
+                inc     h_dead
+lp_f0:          tst     h_dead          ; (or a hole filled on him)
                 bne     died
                 ldaa    ex_state        ; out at the top: the level is done
                 cmpa    #2
@@ -638,6 +690,11 @@ actors_draw:
                 stx     up_s
                 ldx     #guards
                 stx     up_d
+                ldd     seed            ; (a seed for respawning: never 0)
+                bne     ad_b0
+                ldd     #$ACE1
+                std     seed
+ad_b0:
 ad_b1:          tst     st_n
                 beq     ad_f1
                 ldx     up_s            ; x = column * 4, y = (row + 1) * 12
@@ -655,13 +712,24 @@ ad_b1:          tst     st_n
                 stab    A_Y,x
                 ldd     #guard_r1_hr    ; standing
                 std     A_SPR,x
+                ldx     up_s            ; his cell, and a fresh start
+                ldd     0,x
+                ldx     up_d
+                std     G_R,x
+                clr     G_T,x
+                clr     G_DIR,x
+                clr     G_FACE,x
+                clr     G_ON,x
+                clr     G_ST,x
+                clr     G_CARRY,x
+                clr     G_OUT,x
                 jsr     act_draw
                 ldx     up_s
                 inx
                 inx
                 stx     up_s
                 ldx     up_d
-                ldab    #A_SIZE
+                ldab    #GD_SIZE
                 abx
                 stx     up_d
                 dec     st_n
@@ -680,6 +748,12 @@ fx_dig:         fcb     DIG_T, SND_NOISE ; digging: a crunch
                 fcb     0
 fx_die:         fcb     40, SND_TONE    ; caught in a hole: a falling whine
                 fdb     N_C5, 12
+                fcb     0
+fx_trap:        fcb     6, SND_TONE     ; a guard falls into a hole: a bonk
+                fdb     2400, -200
+                fcb     0
+fx_bury:        fcb     10, SND_NOISE   ; a hole closes on a guard: a crunch
+                fdb     900, 60
                 fcb     0
 fx_gem:         fcb     3, SND_TONE     ; a geode: bling
                 fdb     N_E5, 0
@@ -716,6 +790,7 @@ s_congr3:       fcc     "SCORE"
 
 #include "hero.inc"
 #include "holes.inc"
+#include "guards.inc"
 #include "draw.inc"
 #include "gfx.asm"
 #include "frame.asm"

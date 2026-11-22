@@ -108,6 +108,8 @@ hu2_f4:         ldd     O_T,x
                 clr     O_ST,x
                 ldaa    #C_BRICK
                 jsr     ho_set
+                ldd     ho_rc           ; a guard trapped in it: buried
+                jsr     guard_bury
                 ldd     h_r             ; the hero in it?
                 subd    ho_rc
                 bne     hu2_next
@@ -120,6 +122,31 @@ hu2_next:       ldx     ho_p
                 beq     hu2_r
                 jmp     hu2_b1
 hu2_r:          rts
+
+; hole_open: Z set if the guard in gs (gs_r, gs_c) is in a hole that is
+; open or filling (a hole being dug is still solid)
+hole_open:
+                ldx     #holes
+                ldab    #HOLES
+ho_b1:          ldaa    O_ST,x
+                cmpa    #HS_OPEN
+                bcs     ho_next
+                ldaa    O_R,x
+                cmpa    gs_r
+                bne     ho_next
+                ldaa    O_C,x
+                cmpa    gs_c
+                bne     ho_next
+                clra                    ; (Z)
+                rts
+ho_next:        pshb
+                ldab    #O_SIZE
+                abx
+                pulb
+                decb
+                bne     ho_b1
+                ldaa    #1
+                rts
 
 ; ho_set: A = a cell code: the hole's cell (ho_rc) becomes it; redraw it
 ; and the cells above and below, and have the hero redrawn over them

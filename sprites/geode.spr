@@ -6,7 +6,7 @@
 # Poses: r0/r1 walking right (stride, legs together), l0/l1 the same
 # facing left, c0/c1 climbing, h0/h1 hand over hand on a cable, f falling.
 
-sprite hero_r0 cg6 halo 0 bg B
+sprite hero_r0 cg6 halo 0 bg B noerase
 ..GGG.
 .GGGGG
 ..YY.Y
@@ -21,7 +21,7 @@ G....G
 ......
 end
 
-sprite hero_l0 cg6 halo 0 bg B
+sprite hero_l0 cg6 halo 0 bg B noerase
 .GGG..
 GGGGG.
 Y.YY..
@@ -36,7 +36,7 @@ G....G
 ......
 end
 
-sprite hero_r1 cg6 halo 0 bg B
+sprite hero_r1 cg6 halo 0 bg B noerase
 ..GGG.
 .GGGGG
 ..YY.Y
@@ -51,7 +51,7 @@ sprite hero_r1 cg6 halo 0 bg B
 ......
 end
 
-sprite hero_l1 cg6 halo 0 bg B
+sprite hero_l1 cg6 halo 0 bg B noerase
 .GGG..
 GGGGG.
 Y.YY..
@@ -66,7 +66,7 @@ YYYY..
 ......
 end
 
-sprite hero_c0 cg6 halo 0 bg B
+sprite hero_c0 cg6 halo 0 bg B noerase
 ..GG..
 .GGGG.
 .GGGG.
@@ -81,7 +81,7 @@ Y.GG..
 ......
 end
 
-sprite hero_c1 cg6 halo 0 bg B
+sprite hero_c1 cg6 halo 0 bg B noerase
 ..GG..
 .GGGG.
 .GGGG.
@@ -96,7 +96,7 @@ G...G.
 ......
 end
 
-sprite hero_h0 cg6 halo 0 bg B
+sprite hero_h0 cg6 halo 0 bg B noerase
 Y....Y
 .Y..Y.
 .YGGY.
@@ -111,7 +111,7 @@ Y....Y
 G....G
 end
 
-sprite hero_h1 cg6 halo 0 bg B
+sprite hero_h1 cg6 halo 0 bg B noerase
 Y....Y
 .Y..Y.
 .YGGY.
@@ -126,7 +126,7 @@ Y....Y
 ..GG..
 end
 
-sprite hero_f cg6 halo 0 bg B
+sprite hero_f cg6 halo 0 bg B noerase
 Y.GG.Y
 YGGGGY
 .YYYY.
@@ -141,7 +141,7 @@ G....G
 ......
 end
 
-sprite guard_r0 cg6 halo 0 bg B
+sprite guard_r0 cg6 halo 0 bg B noerase
 R....R
 .RRRR.
 RRRRRR
@@ -156,7 +156,7 @@ R....R
 ......
 end
 
-sprite guard_l0 cg6 halo 0 bg B
+sprite guard_l0 cg6 halo 0 bg B noerase
 R....R
 .RRRR.
 RRRRRR
@@ -171,7 +171,7 @@ R....R
 ......
 end
 
-sprite guard_r1 cg6 halo 0 bg B
+sprite guard_r1 cg6 halo 0 bg B noerase
 R....R
 .RRRR.
 RRRRRR
@@ -186,7 +186,7 @@ R.RR.R
 ......
 end
 
-sprite guard_l1 cg6 halo 0 bg B
+sprite guard_l1 cg6 halo 0 bg B noerase
 R....R
 .RRRR.
 RRRRRR
@@ -201,7 +201,7 @@ R.RR.R
 ......
 end
 
-sprite guard_c0 cg6 halo 0 bg B
+sprite guard_c0 cg6 halo 0 bg B noerase
 R....R
 .RRRR.
 RRRRRR
@@ -216,7 +216,7 @@ R.....
 ......
 end
 
-sprite guard_c1 cg6 halo 0 bg B
+sprite guard_c1 cg6 halo 0 bg B noerase
 R....R
 .RRRR.
 RRRRRR
@@ -231,7 +231,7 @@ R.RR.R
 ......
 end
 
-sprite guard_f cg6 halo 0 bg B
+sprite guard_f cg6 halo 0 bg B noerase
 R....R
 .RRRR.
 RRRRRR

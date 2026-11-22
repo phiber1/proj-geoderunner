@@ -59,37 +59,30 @@ ct_f1:          ldaa    #T_BRICK_LOW
 ct_f2:          ldaa    #T_BRICK
 ct_r:           rts
 
-; tile_put: A = a tile, X = where (32-byte rows): copy its 12 bytes there
+; tile_put: A = a tile, X = where (32-byte rows): draw it there (each
+; tile is a compiled routine: tools/mktiles.py)
 tile_put:
                 stx     dc_s
-                ldab    #12
-                mul
-                addd    #tiles
-                std     dc_t
-k               set     0
-                rept    8               ; rows 0-7
-                ldx     dc_t
-                ldaa    k,x
+                asla
+                tab
+                ldx     #tilerout
+                abx
+                ldx     0,x
+                stx     tp_jmp+1
                 ldx     dc_s
-                staa    k*ROW_BYTES,x
-k               set     k+1
-                endm
-                ldd     dc_s            ; rows 8-11: 256 bytes on
-                inca
-                std     dc_s
-                rept    4
-                ldx     dc_t
-                ldaa    k,x
-                ldx     dc_s
-                staa    (k-8)*ROW_BYTES,x
-k               set     k+1
-                endm
-                rts
+tp_jmp:         jmp     tile_put        ; (patched)
 
-; draw_cell: A = row, B = column: draw that cell on the screen
+; draw_cell: A = row, B = column: draw that cell on the screen (and note
+; its tile in tmap, for act_update)
 draw_cell:
-                jsr     cell_tile       ; (leaves dc_r, dc_c)
+                jsr     cell_tile       ; (leaves dc_r, dc_c, dc_m)
                 staa    dc_tl
+                ldd     dc_m            ; tmap: the same place as in lv_map
+                addd    #tmap-lv_map
+                std     dc_m
+                ldx     dc_m
+                ldaa    dc_tl
+                staa    0,x
                 ldx     #rowaddr        ; the row's start + the column
                 ldab    dc_r
                 aslb
@@ -127,7 +120,7 @@ d12_r:          tba
 act_draw:
                 stx     cp_a
                 ldaa    A_X,x
-                bsr     sprite_x
+                jsr     sprite_x
                 ldab    A_Y,x
                 ldx     A_SPR,x
                 jsr     spr_art
@@ -148,27 +141,38 @@ act_update:
                 bne     au_go
                 rts
 au_go:          stx     cp_a
-                ldaa    A_OX,x          ; the patch: 4 bytes from the left
-                bsr     sprite_x        ; of the two places
+                ldaa    A_OX,x          ; the patch: the bytes the two places
+                bsr     sprite_x        ; cover (2 to 4 across)
                 staa    cp_t
                 ldx     cp_a
                 ldaa    A_X,x
-                bsr     sprite_x
+                jsr     sprite_x
+                staa    cp_sx
+                cmpa    cp_t            ; (the right edge: the larger + 5)
+                bcc     au_f0
+                ldaa    cp_t
+au_f0:          adda    #5
+                lsra
+                lsra
+                staa    cp_w
+                ldaa    cp_sx           ; (the left: the smaller)
                 cmpa    cp_t
                 bls     au_f1
                 ldaa    cp_t
 au_f1:          lsra
                 lsra
-                cmpa    #LV_COLS-4
-                bls     au_f2
-                ldaa    #LV_COLS-4
-au_f2:          staa    cp_c
+                staa    cp_c
+                ldaa    cp_w            ; width = right - left + 1
+                suba    cp_c
+                inca
+                staa    cp_w
                 ldx     cp_a            ; ... the cell rows both cover
                 ldaa    A_OY,x
                 cmpa    A_Y,x
                 bls     au_f3
                 ldaa    A_Y,x
-au_f3:          bsr     div12
+au_f3:          staa    cp_y0           ; (the first row either covers)
+                jsr     div12
                 deca
                 staa    cp_r0
                 ldx     cp_a
@@ -177,7 +181,8 @@ au_f3:          bsr     div12
                 bcc     au_f4
                 ldaa    A_Y,x
 au_f4:          adda    #11
-                bsr     div12
+                staa    cp_y1           ; (... and the last)
+                jsr     div12
                 deca
                 cmpa    #LV_ROWS-1
                 bls     au_f5
@@ -201,16 +206,22 @@ au_f5:          staa    cp_r1
                 ldd     #SH_TOP
                 subd    cp_t2
                 std     cp_org
-; the cells' tiles into the shadow
+; the cells' tiles into the shadow (from tmap)
                 ldaa    cp_r0
                 staa    cp_rr
+                ldab    #LV_COLS
+                mul
+                addd    #tmap
+                addb    cp_c
+                adca    #0
+                std     cp_tp
                 ldd     #SH_TOP
                 std     cp_rowd
 au_b1:          clr     cp_k
-au_b2:          ldaa    cp_rr
-                ldab    cp_c
-                addb    cp_k
-                jsr     cell_tile
+au_b2:          ldx     cp_tp
+                ldab    cp_k
+                abx
+                ldaa    0,x
                 ldx     cp_rowd         ; (the shadow's columns are the screen's)
                 ldab    cp_k
                 addb    cp_c
@@ -218,11 +229,14 @@ au_b2:          ldaa    cp_rr
                 jsr     tile_put
                 inc     cp_k
                 ldaa    cp_k
-                cmpa    #4
+                cmpa    cp_w
                 bne     au_b2
                 ldd     cp_rowd
                 addd    #12*ROW_BYTES
                 std     cp_rowd
+                ldd     cp_tp
+                addd    #LV_COLS
+                std     cp_tp
                 inc     cp_rr
                 ldaa    cp_rr
                 cmpa    cp_r1
@@ -234,29 +248,43 @@ au_b2:          ldaa    cp_rr
 au_b3:          tst     cp_g
                 beq     au_f6
                 stx     cp_gp
-                bsr     cp_actor
+                jsr     cp_actor
                 ldx     cp_gp
-                ldab    #A_SIZE
+                ldab    #GD_SIZE
                 abx
                 dec     cp_g
                 bra     au_b3
 au_f6:          ldx     #hero_a
-                bsr     cp_actor
-; the patch onto the screen, a row at a time (4 bytes)
-                ldab    cp_c
-                ldx     #SH_TOP
-                abx
-                stx     cp_src
-                ldaa    cp_top
+                jsr     cp_actor
+; the patch onto the screen, a row at a time (4 bytes): only the rows the
+; actor covers, then or now (the rest of the patch is unchanged)
+                ldaa    cp_y0           ; shadow: SH_TOP + (y0 - top) * 32 + c
+                suba    cp_top
+                ldab    #ROW_BYTES
+                mul
+                addd    #SH_TOP
+                addb    cp_c
+                adca    #0
+                std     cp_src
+                ldaa    cp_y0           ; screen: SCREEN + y0 * 32 + c
                 ldab    #ROW_BYTES
                 mul
                 addd    #SCREEN
                 addb    cp_c
                 adca    #0
                 std     cp_dst
-                ldaa    cp_n
+                ldaa    cp_y1           ; rows: y1 - y0 + 1 (kept on the screen)
+                cmpa    #191
+                bls     au_f7
+                ldaa    #191
+au_f7:          suba    cp_y0
+                inca
                 staa    cp_k
-au_b4:          ldx     cp_src
+                ldaa    cp_w            ; (a loop for each width)
+                cmpa    #3
+                bcs     au_c2
+                beq     au_c3
+au_c4:          ldx     cp_src          ; 4 bytes
                 ldd     2,x
                 std     cp_t2
                 ldd     0,x
@@ -264,14 +292,36 @@ au_b4:          ldx     cp_src
                 std     0,x
                 ldd     cp_t2
                 std     2,x
-                ldd     cp_src
+                bsr     au_next
+                bne     au_c4
+                bra     au_done
+au_c3:          ldx     cp_src          ; 3 bytes
+                ldaa    2,x
+                staa    cp_t2
+                ldd     0,x
+                ldx     cp_dst
+                std     0,x
+                ldaa    cp_t2
+                staa    2,x
+                bsr     au_next
+                bne     au_c3
+                bra     au_done
+au_c2:          ldx     cp_src          ; 2 bytes
+                ldd     0,x
+                ldx     cp_dst
+                std     0,x
+                bsr     au_next
+                bne     au_c2
+                bra     au_done
+au_next:        ldd     cp_src          ; the next row: Z set when done
                 addd    #ROW_BYTES
                 std     cp_src
                 ldd     cp_dst
                 addd    #ROW_BYTES
                 std     cp_dst
                 dec     cp_k
-                bne     au_b4
+                rts
+au_done:
                 ldx     cp_a            ; drawn as it is now
                 ldd     A_X,x
                 std     A_OX,x
@@ -294,14 +344,17 @@ cp_actor:
                 jsr     sprite_x
                 staa    cp_sx
                 adda    #5
-                ldab    cp_c
+                ldab    cp_c            ; (the patch: c*4 .. (c+w)*4-1)
                 aslb
                 aslb
                 stab    cp_t
                 cmpa    cp_t
                 bcs     cpa_r
-                ldab    cp_t
-                addb    #15
+                ldab    cp_c
+                addb    cp_w
+                aslb
+                aslb
+                decb
                 cmpb    cp_sx
                 bcs     cpa_r
                 ldaa    A_Y,x           ; where: origin + y * 32 + sx / 4

@@ -188,6 +188,11 @@ hu_g1:          staa    hu_here
                 beq     hu_held
                 jsr     is_solid
                 beq     hu_held
+                ldaa    h_r             ; ... or a trapped guard's head
+                inca
+                ldab    h_c
+                jsr     trapped_in
+                beq     hu_held
                 jmp     hu_dofall       ; no: he falls
                 bra     hu_held
 hu_ladder:      ldaa    #1              ; (h_on: 1 on a ladder, 2 on a cable)
