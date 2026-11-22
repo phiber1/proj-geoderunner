@@ -21,7 +21,7 @@ climbing, hanging, falling, and digging down through one or two layers of
 brick) and where he can get back from, and adds ladders until nearly all
 of the level is both.  Geodes go only where he can get to and back from,
 so they can be collected in any order; the exit ladder climbs to the top
-from such a place, in the leftmost or rightmost column.  Several
+from such a place, one column in from either edge.  Several
 candidates are made and the most interesting kept.
 
     python3 tools/levelgen.py N [N2 ...]     print levels
@@ -459,7 +459,7 @@ def style_word(rnd, P, words):
                                 g[y + 1][x] = 'B'
                     else:                                   # a horizontal stroke
                         g[y][x] = g[y][x + 1] = 'B'
-    # ledges in the top corners, for the exit ladder at an edge
+    # ledges in the top corners, for the exit ladder near an edge
     for c0 in (0, COLS - 3):
         if all(g[y][x] == '.' for y in (1, 2) for x in range(c0, c0 + 3)):
             floor_run(g, rnd, dict(P, stone=0), 2, c0, c0 + 3)
@@ -535,11 +535,12 @@ def place(g, rnd, P, start):
     if len(easy) < P['geodes'] - k:
         return None
     geodes = rnd.sample(needdig, k) + rnd.sample(easy, P['geodes'] - k)
-    # the exit: a column climbing from a two-way cell to the top, at the far
-    # left or the far right, never in the middle
+    # the exit: a column climbing from a two-way cell to the top, one cell in
+    # from the far left or the far right (so the hero climbs it centered),
+    # never in the middle
     # (one starting from row 9 or higher if there is one, else from lower)
     edge = [p for p in sorted(both) if standing(g, p) and p not in geodes
-            and p[1] in (0, COLS - 1)]
+            and p[1] in (1, COLS - 2)]
     high = [p for p in edge if p[0] <= 9]
     low = [p for p in edge if p[0] > 9]
     rnd.shuffle(high)

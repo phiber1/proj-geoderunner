@@ -89,7 +89,9 @@ hero_update:
                 dec     h_dig
                 rts
 hu_f0:          tst     h_t
-                beq     hu_decide
+                bne     hu_f00
+                jmp     hu_decide
+hu_f00:
                 ldab    h_t             ; under way: a step of the move
                 ldaa    h_dir
                 cmpa    #D_LEFT
@@ -120,8 +122,42 @@ hu_f3:          cmpa    #D_DOWN
                 bra     hu_next
 hu_f4:          inc     h_y             ; falling: a row a frame
 hu_next:        dec     h_t
-                beq     hu_decide       ; there: on to the next move at once
-                rts
+                bne     hu_n1
+                jmp     hu_decide       ; there: on to the next move at once
+hu_n1:          ldaa    h_t             ; a frame before landing: the thud
+                cmpa    #1              ; (it feels late on the landing frame)
+                bne     hu_nr
+                ldaa    h_dir
+                cmpa    #D_FALL
+                bne     hu_nr
+                jsr     lands
+                bne     hu_nr
+                clr     h_fall          ; (heard: not again on arrival)
+                ldx     #fx_land
+                ldaa    #2
+                jsr     snd_play
+hu_nr:          rts
+
+; lands: Z set if the cell he's moving to (h_r, h_c) will hold him up: a
+; ladder or cable there, floor or ladder below
+lands:
+                ldaa    h_r
+                ldab    h_c
+                jsr     cell_at
+                cmpa    #C_GEODE        ; (a geode there doesn't hold him)
+                beq     ln_f1
+                cmpa    #C_LADDER
+                beq     ln_r
+                cmpa    #C_CABLE
+                beq     ln_r
+ln_f1:          ldaa    h_r
+                inca
+                ldab    h_c
+                jsr     cell_at
+                cmpa    #C_LADDER
+                beq     ln_r
+                jsr     is_solid
+ln_r:           rts
 
 hu_decide:
                 clr     h_dir
