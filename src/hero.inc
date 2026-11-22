@@ -129,7 +129,11 @@ hu_decide:
                 ldaa    h_r             ; what's here, and under him
                 ldab    h_c
                 jsr     cell_at
-                staa    hu_here
+                cmpa    #C_GEODE        ; (a geode: his)
+                bne     hu_g1
+                jsr     geode_take
+                clra
+hu_g1:          staa    hu_here
                 ldaa    h_r
                 inca
                 ldab    h_c

@@ -4,8 +4,11 @@
 ; So far: a level is read from LEVELS.DAT on the SD card (tools/levelgen.py
 ; makes it: a 16-byte header, then 240 bytes a level, 4 bits a cell) and
 ; drawn, with the guards at their starting places; the hero runs, climbs,
-; hangs and falls (W A S Z or the arrow keys), and digs (SPACE, with A or S
-; for a side).  N shows the next level (for now).
+; hangs and falls (W A S Z or the arrow keys), digs (SPACE, with A or S
+; for a side) and collects the geodes (250 each); the last one makes the
+; exit ladder grow, and climbing off the top finishes the level (1500 and
+; a life).  Three lives, one more for each level finished.
+; Debug builds: N shows the next level.
 
 #define GFX_MODE GFX_CG6
 #define GFX_BG CG_BLUE
@@ -121,21 +124,39 @@ cp_gp           rmb     2
 cp_src          rmb     2               ; ... copying it to the screen
 cp_dst          rmb     2
 cp_sx           rmb     1
+score           rmb     3               ; BCD
+lives           rmb     1
+g_left          rmb     1               ; geodes still to collect
+ex_col          rmb     1               ; the exit ladder's column,
+ex_bot          rmb     1               ; ... its bottom row,
+ex_state        rmb     1               ; ... 0 hidden, 1 growing, 2 there
+ex_row          rmb     1               ; ... growing: the next row,
+ex_t            rmb     1               ; ... frames to it
+w_n             rmb     1               ; wait
 
                 org     CODE
 start:
                 sei
                 lds     #STACK_TOP
                 jsr     gfx_init
-                ldaa    #1
-                staa    level
                 clr     key_was
                 clr     joy_force
                 jsr     frame_init
+new_game:
+                ldaa    #1
+                staa    level
+                ldaa    #3
+                staa    lives
+                clr     score
+                clr     score+1
+                clr     score+2
 new_level:
                 jsr     lv_load         ; the level from the SD card
-                bcs     no_file
+                bcc     nl_f2
+                jmp     no_file
+nl_f2:
                 jsr     lv_actors
+                jsr     lv_scan
                 jsr     holes_init
                 jsr     gfx_cls
                 jsr     lv_draw
@@ -154,11 +175,21 @@ dbg_f1:
                 endif
                 jsr     hero_update
                 jsr     hole_update
+                jsr     exit_update
                 jsr     hero_pose
                 ldx     #hero_a
                 jsr     act_update
-                tst     h_dead          ; a hole filled on him: again
+                tst     h_dead          ; a hole filled on him
                 bne     died
+                ldaa    ex_state        ; out at the top: the level is done
+                cmpa    #2
+                bne     lp_f1
+                tst     h_r
+                bne     lp_f1
+                tst     h_t
+                beq     level_done
+lp_f1:
+                if      DEBUG
                 ldaa    #$FF-$40        ; N (column 6, row 1): the next level
                 staa    P1DAT
                 ldaa    KBD
@@ -171,26 +202,199 @@ dbg_f1:
                 stab    key_was
                 anda    key_was
                 beq     loop
+                bra     next_level
+                else
+                bra     loop
+                endif
+
+level_done:
+                ldx     #fx_clear
+                ldaa    #8
+                jsr     snd_play
+                ldd     #$1500          ; 1500 points
+                jsr     score_add
+                ldaa    lives           ; and a life (9 at most)
+                cmpa    #9
+                bcc     ld2_f1
+                inc     lives
+ld2_f1:         jsr     status_draw
+                ldaa    #90
+                jsr     wait
+next_level:
                 ldaa    level
                 inca
                 cmpa    #NLEVELS+1
-                bcs     nl_f1
-                ldaa    #1
-nl_f1:          staa    level
-                bra     new_level
+                bcc     congrats
+                staa    level
+                jmp     new_level
 
 died:
                 ldx     #fx_die
                 ldaa    #9
                 jsr     snd_play
-                ldaa    #90             ; a moment, then the level again
-dd_b1:          psha
-                jsr     frame_wait
+                ldaa    #90             ; a moment
+                jsr     wait
+                dec     lives
+                bne     dd_f1
+                jsr     status_draw     ; the last one: game over
+                ldaa    #COLOR_BYTE(CG_RED)
+                staa    txt_col
+                ldx     #TXT_AT(86,11)
+                ldd     #s_over
+                jsr     txt_str2
+                ldaa    #240
+                jsr     wait
+                jmp     new_game
+dd_f1:          jmp     new_level       ; the level again
+
+; every level done: a congratulation (for now), then a new game
+congrats:
+                jsr     gfx_cls
+                ldaa    #COLOR_BYTE(CG_YELLOW)
+                staa    txt_col
+                ldx     #TXT_AT(60,8)
+                ldd     #s_congr1
+                jsr     txt_str2
+                ldx     #TXT_AT(84,5)
+                ldd     #s_congr2
+                jsr     txt_str2
+                ldx     #TXT_AT(108,9)
+                ldd     #s_congr3
+                jsr     txt_str2
+                ldx     #TXT_AT(108,19)
+                jsr     score_put
+                ldaa    #255
+                jsr     wait
+                ldaa    #255
+                jsr     wait
+                jmp     new_game
+
+; wait: A frames (the sound going on)
+wait:
+                staa    w_n
+wt_b1:          jsr     frame_wait
                 jsr     snd_frame
+                dec     w_n
+                bne     wt_b1
+                rts
+
+; ---------------------------------------------------------------- geodes, exit
+
+; lv_scan: count the geodes; find the exit ladder (its column, its bottom)
+lv_scan:
+                clr     g_left
+                clr     ex_state
+                clr     ex_bot
+                clr     dc_r
+                ldx     #lv_map
+ls_b1:          clr     dc_c
+ls_b2:          ldaa    0,x
+                cmpa    #C_GEODE
+                bne     ls_f1
+                inc     g_left
+ls_f1:          cmpa    #C_EXIT
+                bne     ls_f2
+                ldd     dc_r            ; (rows go down: the last is the bottom)
+                staa    ex_bot
+                stab    ex_col
+ls_f2:          inx
+                inc     dc_c
+                ldaa    dc_c
+                cmpa    #LV_COLS
+                bne     ls_b2
+                inc     dc_r
+                ldaa    dc_r
+                cmpa    #LV_ROWS
+                bne     ls_b1
+                rts
+
+; geode_take: the hero is on a geode's cell (h_r, h_c): collect it
+geode_take:
+                ldaa    h_r
+                ldab    #LV_COLS
+                mul
+                addb    h_c
+                adca    #0
+                addd    #lv_map
+                std     ho_m
+                ldx     ho_m
+                clr     0,x             ; (air)
+                ldd     h_r
+                jsr     draw_cell
+                ldd     #0              ; (redraw him over it)
+                std     hero_a+A_OSPR
+                ldd     #$0250
+                jsr     score_add
+                jsr     status_score
+                ldx     #fx_gem
+                ldaa    #5
+                jsr     snd_play
+                dec     g_left
+                bne     gt_r
+                ldaa    #1              ; the last: the exit ladder grows,
+                staa    ex_state        ; from its bottom up
+                ldaa    ex_bot
+                staa    ex_row
+                ldaa    #1
+                staa    ex_t
+                ldx     #fx_exit
+                ldaa    #6
+                jsr     snd_play
+gt_r:           rts
+
+; exit_update: once a frame: the ladder growing, a rung every few frames
+exit_update:
+                ldaa    ex_state
+                cmpa    #1
+                bne     eu_r
+                dec     ex_t
+                bne     eu_r
+                ldaa    #4
+                staa    ex_t
+                ldaa    ex_row          ; this cell becomes ladder
+                ldab    #LV_COLS
+                mul
+                addb    ex_col
+                adca    #0
+                addd    #lv_map
+                std     ho_m
+                ldx     ho_m
+                ldaa    #C_LADDER
+                staa    0,x
+                ldaa    ex_row
+                ldab    ex_col
+                jsr     draw_cell
+                ldaa    ex_row          ; (and the one below: it may be brick
+                cmpa    #LV_ROWS-1      ; drawn on brick)
+                beq     eu_f1
+                inca
+                ldab    ex_col
+                jsr     draw_cell
+eu_f1:          ldd     #0
+                std     hero_a+A_OSPR
+                dec     ex_row
+                bpl     eu_r
+                ldaa    #2              ; all there
+                staa    ex_state
+eu_r:           rts
+
+; score_add: D = BCD points, 4 digits (A thousands and hundreds, B tens
+; and ones): add them to the score
+score_add:
+                psha
+                tba
+                adda    score+2
+                daa
+                staa    score+2
                 pula
-                deca
-                bne     dd_b1
-                jmp     new_level
+                adca    score+1
+                daa
+                staa    score+1
+                ldaa    score
+                adca    #0
+                daa
+                staa    score
+                rts
 
 no_file:
                 jsr     gfx_cls
@@ -370,9 +574,11 @@ status_draw:                            ; (double height, as in the mock-up)
                 ldaa    #COLOR_BYTE(CG_YELLOW)
                 staa    txt_col
                 ldx     #TXT_AT(1,0)
-                ldd     #s_score
+                ldd     #s_status
                 jsr     txt_str2
-                ldaa    level           ; three digits
+                bsr     status_score
+                ldx     #TXT_AT(1,20)   ; the level: three digits
+                ldaa    level
                 clrb
 sd_b1:          cmpa    #100
                 bcs     sd_f1
@@ -397,8 +603,32 @@ sd_f2:          staa    st_n
                 ldaa    st_n
                 adda    #'0'
                 jsr     txt_char2
-                ldd     #s_lives
-                jmp     txt_str2
+                ldx     #TXT_AT(1,31)   ; the lives
+                ldaa    lives
+                adda    #'0'
+                jmp     txt_char2
+
+status_score:
+                ldaa    #COLOR_BYTE(CG_YELLOW)
+                staa    txt_col
+                ldx     #TXT_AT(1,6)
+score_put:                              ; X = where: the score's six digits
+                ldaa    score
+                bsr     sp_byte
+                ldaa    score+1
+                bsr     sp_byte
+                ldaa    score+2
+sp_byte:        psha                    ; A = two BCD digits
+                lsra
+                lsra
+                lsra
+                lsra
+                adda    #'0'
+                jsr     txt_char2
+                pula
+                anda    #$0F
+                adda    #'0'
+                jmp     txt_char2
 
 ; the guards' records from their start cells, and everyone drawn
 actors_draw:
@@ -451,14 +681,37 @@ fx_dig:         fcb     DIG_T, SND_NOISE ; digging: a crunch
 fx_die:         fcb     40, SND_TONE    ; caught in a hole: a falling whine
                 fdb     N_C5, 12
                 fcb     0
+fx_gem:         fcb     3, SND_TONE     ; a geode: bling
+                fdb     N_E5, 0
+                fcb     6, SND_TONE
+                fdb     N_B5, 0
+                fcb     0
+fx_exit:        fcb     40, SND_TONE    ; the exit ladder grows: a rising sweep
+                fdb     N_C4, -20
+                fcb     0
+fx_clear:       fcb     6, SND_TONE     ; out: a little fanfare
+                fdb     N_C5, 0
+                fcb     6, SND_TONE
+                fdb     N_E5, 0
+                fcb     6, SND_TONE
+                fdb     N_G5, 0
+                fcb     18, SND_TONE
+                fdb     N_C6, 0
+                fcb     0
 
 s_file:         fcc     "LEVELS.DAT"
 S_FILE_LEN      equ     *-s_file
 s_nofile:       fcc     "LEVELS.DAT NOT FOUND"
                 fcb     0
-s_score:        fcc     "SCORE 000000  LEVEL "
+s_status:       fcc     "SCORE         LEVEL      LIVES"
                 fcb     0
-s_lives:        fcc     "  LIVES 3"
+s_over:         fcc     "GAME OVER"
+                fcb     0
+s_congr1:       fcc     "CONGRATULATIONS!"
+                fcb     0
+s_congr2:       fcc     "YOU ESCAPED THE MINE!"
+                fcb     0
+s_congr3:       fcc     "SCORE"
                 fcb     0
 
 #include "hero.inc"
