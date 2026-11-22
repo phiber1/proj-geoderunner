@@ -1,87 +1,415 @@
 ; geode.asm: Geode Runner, a single-screen digging platformer for the
 ; MC-10 (8K RAM mod + MCX32-SD), in CG6 on a blue background.
 ;
-; For now a skeleton: the screen, the status line, and the hero walking
-; left and right (A / S or the arrow keys) past a thief and a geode.
+; So far: a level is read from LEVELS.DAT on the SD card (tools/levelgen.py
+; makes it: a 16-byte header, then 240 bytes a level, 4 bits a cell) and
+; drawn, with the hero and the thieves at their starting places.  SPACE
+; shows the next level.
 
 #define GFX_MODE GFX_CG6
 #define GFX_BG CG_BLUE
 #include "layout.inc"
 
-FLOOR_Y         equ     150             ; the hero's top row, for now
+BIOS_SEEK       equ     8               ; MCX BIOS 'P': set the file position
+                                        ; (32 bits: PB_BUF high, PB_LEN low)
+LV_FILE         equ     1               ; the file number LEVELS.DAT uses
+NLEVELS         equ     150
+LV_COLS         equ     32
+LV_ROWS         equ     15
+LV_CELLS        equ     LV_COLS*LV_ROWS
+LV_RECORD       equ     LV_CELLS/2      ; bytes a level in the file
+LV_HEADER       equ     16
+MAX_THIEVES     equ     5
+
+; cell codes, as in the level file
+C_AIR           equ     0
+C_BRICK         equ     1
+C_STONE         equ     2
+C_LADDER        equ     3
+C_CABLE         equ     4
+C_GEODE         equ     5
+C_HERO          equ     6               ; (start places: air once read)
+C_THIEF         equ     7
+C_EXIT          equ     8               ; the hidden exit ladder
+
+                org     LOW
+lv_buf          rmb     LV_RECORD       ; a level as read
+lv_map          rmb     LV_CELLS        ; ... and unpacked, a cell a byte
+
+                org     BSS
+level           rmb     1               ; 1..NLEVELS
+lv_pb           rmb     PB_SIZE         ; the BIOS parameter block
+up_s            rmb     2               ; unpacking: from, to
+up_d            rmb     2
+hero_r          rmb     1               ; the hero's start cell
+hero_c          rmb     1
+nthief          rmb     1               ; the thieves' start cells (row, col)
+thief_rc        rmb     2*MAX_THIEVES
+dc_r            rmb     1               ; draw_cell: the cell,
+dc_c            rmb     1
+dc_m            rmb     2               ; ... its map byte,
+dc_t            rmb     2               ; ... its tile's bytes,
+dc_s            rmb     2               ; ... its place on the screen
+key_was         rmb     1
+st_n            rmb     1               ; status: digits
 
                 org     CODE
 start:
                 sei
                 lds     #STACK_TOP
                 jsr     gfx_init
-                ldaa    #COLOR_BYTE(CG_YELLOW)
-                staa    txt_col
-                ldx     #TXT_AT(2,0)
-                ldd     #s_status
-                jsr     txt_str
-                ldx     #TXT_AT(80,10)
-                ldd     #s_title
-                jsr     txt_str2
-                ldx     #objs
-                stx     obj_first
-                ldx     #objs_end
-                stx     obj_end
+                ldaa    #1
+                staa    level
+                clr     key_was
                 jsr     frame_init
+new_level:
+                jsr     lv_load         ; the level from the SD card
+                bcs     no_file
+                jsr     lv_actors
+                jsr     gfx_cls
+                jsr     lv_draw
+                jsr     status_draw
+                jsr     actors_draw
 loop:
                 jsr     frame_wait
                 jsr     snd_frame
-                jsr     kbd_read
-                jsr     hero_move
-                jsr     thief_move
-                jsr     spr_update_all
-                bra     loop
+                jsr     kbd_read        ; SPACE: the next level
+                ldaa    joy
+                anda    #J_FIRE
+                tab
+                eora    key_was         ; (on the press)
+                stab    key_was
+                anda    key_was
+                beq     loop
+                ldaa    level
+                inca
+                cmpa    #NLEVELS+1
+                bcs     nl_f1
+                ldaa    #1
+nl_f1:          staa    level
+                bra     new_level
 
-; the hero walks at half a pixel a frame while A or S is held
-hero_move:
-                ldd     #0
-                ldab    joy
-                bitb    #J_LEFT
-                beq     hm_f1
-                ldd     #-$80
-                bra     hm_f2
-hm_f1:          bitb    #J_RIGHT
-                beq     hm_f2
-                ldd     #$80
-hm_f2:          std     hero+O_DX
-                ldd     hero+O_X        ; stay on the screen
-                addd    hero+O_DX
-                cmpa    #128-hero_W
-                bcs     hm_r
-                ldd     #0
-                std     hero+O_DX
-hm_r:           rts
+no_file:
+                jsr     gfx_cls
+                ldaa    #COLOR_BYTE(CG_YELLOW)
+                staa    txt_col
+                ldx     #TXT_AT(90,6)
+                ldd     #s_nofile
+                jsr     txt_str
+                bra     *
 
-; the thief paces back and forth
-thief_move:
-                ldd     thief+O_X
-                addd    thief+O_DX
-                cmpa    #128-thief_W
-                bcs     tm_r
-                ldd     #0
-                subd    thief+O_DX
-                std     thief+O_DX
-tm_r:           rts
+; ---------------------------------------------------------------- loading
 
-s_status:       fcc     "SCORE 000000  LEVEL 001  LIVES 3"
+; lv_load: read level `level` from LEVELS.DAT into lv_map.  Carry set if
+; the file can't be read.
+lv_load:
+                ldaa    #LV_FILE        ; (close the handle first, as BASIC
+                jsr     lv_pbinit       ; does; errors ignored)
+                ldab    #BIOS_CLOSE
+                jsr     lv_bios
+                ldaa    #PB_IN|LV_FILE
+                jsr     lv_pbinit
+                ldab    #BIOS_OPEN
+                jsr     lv_bios
+                bcs     lv_load_r
+                ldaa    level           ; seek: 16 + 240 * (level - 1)
+                deca
+                ldab    #LV_RECORD
+                mul
+                addd    #LV_HEADER
+                std     lv_pb+PB_LEN
+                ldd     #0
+                std     lv_pb+PB_BUF
+                ldaa    #LV_FILE
+                staa    lv_pb+PB_MODE
+                ldab    #BIOS_SEEK
+                jsr     lv_bios
+                bcs     lv_load_e
+                ldd     #lv_buf         ; read the level's 240 bytes
+                std     lv_pb+PB_BUF
+                ldd     #LV_RECORD
+                std     lv_pb+PB_LEN
+                ldab    #BIOS_READ
+                jsr     lv_bios
+                bcs     lv_load_e
+                ldd     lv_pb+PB_LEN    ; (all of them?)
+                subd    #LV_RECORD
+                bne     lv_load_e
+                bsr     lv_close
+                bsr     lv_unpack
+                clc
+lv_load_r:      rts
+lv_load_e:      bsr     lv_close
+                sec
+                rts
+
+lv_close:
+                ldaa    #LV_FILE
+                staa    lv_pb+PB_MODE
+                ldab    #BIOS_CLOSE
+                bra     lv_bios
+
+lv_pbinit:                              ; zero the block; the name, A = mode
+                ldx     #lv_pb
+                ldab    #PB_SIZE
+lv_pbinit_b1:   clr     0,x
+                inx
+                decb
+                bne     lv_pbinit_b1
+                staa    lv_pb+PB_MODE
+                ldd     #s_file
+                std     lv_pb+PB_NAME
+                ldaa    #S_FILE_LEN
+                staa    lv_pb+PB_NLEN
+                rts
+
+lv_bios:                                ; B = function: call the BIOS (SD)
+                clra
+                ldx     #lv_pb
+                jmp     MCX_BIOS
+
+; two cells a byte (the left one in the high nibble) -> a cell a byte
+lv_unpack:
+                ldx     #lv_buf
+                stx     up_s
+                ldx     #lv_map
+                stx     up_d
+lv_unpack_b1:   ldx     up_s
+                ldaa    0,x
+                inx
+                stx     up_s
+                tab
+                lsra
+                lsra
+                lsra
+                lsra
+                andb    #$0F
+                ldx     up_d
+                staa    0,x
+                stab    1,x
+                inx
+                inx
+                stx     up_d
+                cpx     #lv_map+LV_CELLS
+                bne     lv_unpack_b1
+                rts
+
+; the hero's and the thieves' start cells: noted, and made air
+lv_actors:
+                clr     nthief
+                clr     dc_r
+                ldx     #lv_map
+la_b1:          clr     dc_c
+la_b2:          ldaa    0,x
+                cmpa    #C_HERO
+                bne     la_f1
+                ldd     dc_r            ; (dc_r, dc_c)
+                std     hero_r
+                clr     0,x
+                bra     la_f2
+la_f1:          cmpa    #C_THIEF
+                bne     la_f2
+                ldab    nthief
+                cmpb    #MAX_THIEVES
+                bcc     la_f2
+                stx     dc_m
+                ldx     #thief_rc
+                abx
+                abx
+                ldd     dc_r
+                std     0,x
+                inc     nthief
+                ldx     dc_m
+                clr     0,x
+la_f2:          inx
+                inc     dc_c
+                ldaa    dc_c
+                cmpa    #LV_COLS
+                bne     la_b2
+                inc     dc_r
+                ldaa    dc_r
+                cmpa    #LV_ROWS
+                bne     la_b1
+                rts
+
+; ---------------------------------------------------------------- drawing
+
+lv_draw:
+                clra
+ld_b1:          clrb
+ld_b2:          pshb
+                psha
+                bsr     draw_cell
+                pula
+                pulb
+                incb
+                cmpb    #LV_COLS
+                bne     ld_b2
+                inca
+                cmpa    #LV_ROWS
+                bne     ld_b1
+                rts
+
+; draw_cell: A = row, B = column: draw that cell's tile
+draw_cell:
+                staa    dc_r
+                stab    dc_c
+                ldab    #LV_COLS        ; its map byte: lv_map + row*32 + col
+                mul
+                addb    dc_c
+                adca    #0
+                addd    #lv_map
+                std     dc_m
+                ldx     dc_m
+                ldab    0,x
+                cmpb    #C_BRICK
+                beq     dc_brick
+                ldx     #celltile       ; the tile for the cell's code
+                abx
+                ldaa    0,x
+                bra     dc_tile
+dc_brick:       ldaa    #T_BRICK_TOP    ; brick: on top of more brick,
+                ldab    dc_r
+                cmpb    #LV_ROWS-1
+                beq     dc_b_f1
+                ldab    LV_COLS,x
+                cmpb    #C_BRICK
+                beq     dc_tile
+dc_b_f1:        ldaa    #T_BRICK_LOW    ; ... under brick,
+                ldab    dc_r
+                beq     dc_b_f2
+                dex                     ; (the cell above: X - 32)
+                ldab    #LV_COLS-1
+dc_b_b1:        dex
+                decb
+                bne     dc_b_b1
+                ldab    0,x
+                cmpb    #C_BRICK
+                beq     dc_tile
+dc_b_f2:        ldaa    #T_BRICK        ; ... or on its own
+dc_tile:        ldab    #12             ; its 12 bytes
+                mul
+                addd    #tiles
+                std     dc_t
+                ldx     #rowaddr        ; its place: the row's start + col
+                ldab    dc_r
+                aslb
+                abx
+                ldd     0,x
+                addb    dc_c
+                adca    #0
+                std     dc_s
+k               set     0
+                rept    8               ; rows 0-7
+                ldx     dc_t
+                ldaa    k,x
+                ldx     dc_s
+                staa    k*ROW_BYTES,x
+k               set     k+1
+                endm
+                ldd     dc_s            ; rows 8-11: 256 bytes on
+                inca
+                std     dc_s
+                rept    4
+                ldx     dc_t
+                ldaa    k,x
+                ldx     dc_s
+                staa    (k-8)*ROW_BYTES,x
+k               set     k+1
+                endm
+                rts
+
+; a cell code's tile (brick is worked out from its neighbours)
+celltile:       fcb     T_AIR, T_BRICK, T_STONE, T_LADDER, T_CABLE, T_GEODE
+                fcb     T_AIR, T_AIR, T_AIR     ; hero, thief: sprites; the exit: hidden
+
+; the screen address of each level row (the status line is row 0)
+rowaddr:
+k               set     1
+                rept    LV_ROWS
+                fdb     SCREEN+k*12*ROW_BYTES
+k               set     k+1
+                endm
+
+status_draw:                            ; (double height, as in the mock-up)
+                ldaa    #COLOR_BYTE(CG_YELLOW)
+                staa    txt_col
+                ldx     #TXT_AT(1,0)
+                ldd     #s_score
+                jsr     txt_str2
+                ldaa    level           ; three digits
+                clrb
+sd_b1:          cmpa    #100
+                bcs     sd_f1
+                suba    #100
+                incb
+                bra     sd_b1
+sd_f1:          staa    st_n
+                tba
+                adda    #'0'
+                jsr     txt_char2
+                ldaa    st_n
+                clrb
+sd_b2:          cmpa    #10
+                bcs     sd_f2
+                suba    #10
+                incb
+                bra     sd_b2
+sd_f2:          staa    st_n
+                tba
+                adda    #'0'
+                jsr     txt_char2
+                ldaa    st_n
+                adda    #'0'
+                jsr     txt_char2
+                ldd     #s_lives
+                jmp     txt_str2
+
+; the hero and the thieves, at their start cells
+actors_draw:
+                ldd     hero_r
+                ldx     #hero_hr
+                bsr     actor_at
+                ldaa    nthief
+                staa    st_n
+                ldx     #thief_rc
+ad_b1:          tst     st_n
+                beq     ad_r
+                stx     dc_m
+                ldd     0,x
+                ldx     #thief_hr
+                bsr     actor_at
+                ldx     dc_m
+                inx
+                inx
+                dec     st_n
+                bra     ad_b1
+ad_r:           rts
+
+; actor_at: A = row, B = column, X = a sprite's draw table: draw it there
+; (centered on the cell: x = column*4 - 1, but not left of the screen)
+actor_at:
+                inca                    ; y = (row + 1) * 12
+                psha
+                aslb
+                aslb
+                beq     aa_f1
+                decb
+aa_f1:          pula
+                pshb
+                ldab    #12
+                mul                     ; B = y (< 256)
+                pula                    ; A = x
+                jmp     spr_art
+
+s_file:         fcc     "LEVELS.DAT"
+S_FILE_LEN      equ     *-s_file
+s_nofile:       fcc     "LEVELS.DAT NOT FOUND"
                 fcb     0
-s_title:        fcc     "GEODE RUNNER"
+s_score:        fcc     "SCORE 000000  LEVEL "
                 fcb     0
-
-; objects: x.frac, y.frac, dx, dy, descriptor (later ones in front)
-objs:
-                fcb     90, 0, FLOOR_Y+5, 0
-                fdb     0, 0, geode_dsc
-thief:          fcb     20, 0, FLOOR_Y-1, 0
-                fdb     $40, 0, thief_dsc
-hero:           fcb     60, 0, FLOOR_Y, 0
-                fdb     0, 0, hero_dsc
-objs_end:
+s_lives:        fcc     "  LIVES 3"
+                fcb     0
 
 #include "gfx.asm"
 #include "frame.asm"
@@ -89,5 +417,5 @@ objs_end:
 #include "input.asm"
 #include "text.asm"
 #include "sprite.asm"
-#include "sprman.asm"
 #include "geode_spr.inc"
+#include "tiles.inc"

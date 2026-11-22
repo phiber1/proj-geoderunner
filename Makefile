@@ -43,6 +43,11 @@ build/spritec: $(ENGINE)/tools/spritec.c | build
 build/p2decb: $(ENGINE)/tools/p2decb.c | build
 	$(CC) $(CFLAGS) -o $@ $<
 
+# the tiles, from the mock-up's art
+build/tiles.inc: tools/mktiles.py mockups/plat_cg6.py | build
+	python3 tools/mktiles.py > $@
+build/geode.s: build/tiles.inc
+
 # compiled sprites
 build/%_spr.inc: sprites/%.spr build/spritec
 	build/spritec $< > $@
@@ -89,7 +94,9 @@ FORCE:
 
 # Run in the emulator: build/sd is the MCX32-SD's SD card
 SD      := build/sd
-run: build/geode.bin
+run: build/geode.bin build/LEVELS.DAT
+	mkdir -p $(SD)
+	cp build/LEVELS.DAT $(SD)/LEVELS.DAT
 	$(MAKE) --no-print-directory run-geode
 run-%: build/%.bin
 	mkdir -p $(SD)

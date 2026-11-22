@@ -1,8 +1,11 @@
 # geode.spr: Geode Runner's sprites, CG6 (CSS=0) on a blue background.
-# G green, Y yellow, B blue, R red; "." is transparent.  "bg B": halos
-# and erases fill with the background blue.
+# G green, Y yellow, B blue, R red; "." is transparent.
+#
+# "halo 0": masked sprites, drawing only their own pixels, so the ladders
+# and bricks behind them show through; the game erases a sprite by
+# redrawing the tiles under it.  12 rows, the height of a cell.
 
-sprite hero cg6 halo 1 bg B
+sprite hero cg6 halo 0 bg B
 ..GG..
 .GGGG.
 .YYYY.
@@ -12,10 +15,12 @@ GGGGGG
 Y.GG.Y
 ..GG..
 .G..G.
+.G..G.
 GG..GG
+......
 end
 
-sprite thief cg6 halo 1 bg B
+sprite thief cg6 halo 0 bg B
 R....R
 .RRRR.
 RRRRRR
@@ -27,12 +32,5 @@ R.RR.R
 ..RR..
 .R..R.
 RR..RR
-end
-
-sprite geode cg6 halo 1 bg B
-..YY..
-.YYYY.
-YYRRYY
-.YRRY.
-..YY..
+......
 end
