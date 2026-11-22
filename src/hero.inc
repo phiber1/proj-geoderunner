@@ -49,11 +49,16 @@ ca_r:           rts
 ca_stone:       ldaa    #C_STONE
                 rts
 
-; is_solid: A = a code: Z set if it can't be walked into (brick, stone)
+; is_solid: A = a code: Z set if it can't be walked into (brick, stone,
+; brick being dug)
 is_solid:
                 cmpa    #C_BRICK
                 beq     is_r
                 cmpa    #C_STONE
+                beq     is_r
+                cmpa    #C_DIG1
+                beq     is_r
+                cmpa    #C_DIG2
 is_r:           rts
 
 hero_init:
@@ -73,11 +78,17 @@ hero_init:
                 stab    h_y
                 clr     h_face
                 clr     h_on
+                clr     h_dig
+                clr     h_dead
                 jmp     hero_pose
 
 ; hero_update: once a frame
 hero_update:
-                tst     h_t
+                tst     h_dig           ; digging: he stands and digs
+                beq     hu_f0
+                dec     h_dig
+                rts
+hu_f0:          tst     h_t
                 beq     hu_decide
                 ldab    h_t             ; under way: a step of the move
                 ldaa    h_dir
@@ -146,7 +157,51 @@ hu_held:        tst     h_fall          ; landed?
                 ldx     #fx_land
                 ldaa    #2
                 jsr     snd_play
-hu_keys:        ldab    joy
+hu_keys:        ldab    joy             ; SPACE: dig, left or right (or
+                bitb    #J_FIRE         ; the way he faces)
+                beq     hu_k1
+                tst     h_on            ; (standing on a floor)
+                bne     hu_k1
+                ldaa    #-1
+                bitb    #J_LEFT
+                bne     hu_dig
+                ldaa    #1
+                bitb    #J_RIGHT
+                bne     hu_dig
+                tst     h_face
+                beq     hu_dig
+                ldaa    #-1
+hu_dig:         staa    hu_dc
+                ldab    #1              ; (face that way)
+                tsta
+                bmi     hu_dg1
+                clrb
+hu_dg1:         stab    h_face
+                ldab    h_c             ; beside him: open?
+                addb    hu_dc
+                ldaa    h_r
+                jsr     cell_at
+                cmpa    #C_AIR
+                beq     hu_dg2
+                cmpa    #C_GEODE
+                bne     hu_r0
+hu_dg2:         ldab    h_c             ; ... and brick below that?
+                addb    hu_dc
+                ldaa    h_r
+                inca
+                jsr     cell_at
+                cmpa    #C_BRICK
+                bne     hu_r0
+                ldab    h_c
+                addb    hu_dc
+                ldaa    h_r
+                inca
+                jsr     hole_start
+                bcs     hu_r0
+                ldaa    #DIG_T
+                staa    h_dig
+hu_r0:          rts
+hu_k1:          ldab    joy
                 bitb    #J_UP           ; UP: up a ladder
                 beq     hu_k2
                 ldaa    hu_here

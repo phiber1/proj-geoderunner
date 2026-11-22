@@ -4,8 +4,8 @@
 ; So far: a level is read from LEVELS.DAT on the SD card (tools/levelgen.py
 ; makes it: a 16-byte header, then 240 bytes a level, 4 bits a cell) and
 ; drawn, with the guards at their starting places; the hero runs, climbs,
-; hangs and falls (W A S Z or the arrow keys).  SPACE shows the next level
-; (for now).
+; hangs and falls (W A S Z or the arrow keys), and digs (SPACE, with A or S
+; for a side).  N shows the next level (for now).
 
 #define GFX_MODE GFX_CG6
 #define GFX_BG CG_BLUE
@@ -33,6 +33,14 @@ A_SIZE          equ     8
 SH_MARGIN       equ     12              ; shadow rows above and below a patch,
 SH_ROWS         equ     36              ; for actors partly outside it
 
+; holes (holes.inc)
+HOLES           equ     8               ; holes open at once, at most
+O_R             equ     0               ; a hole's record: its cell,
+O_C             equ     1
+O_ST            equ     2               ; ... its state (0: a free record),
+O_T             equ     3               ; ... frames left in the state
+O_SIZE          equ     5
+
 ; cell codes, as in the level file
 C_AIR           equ     0
 C_BRICK         equ     1
@@ -43,6 +51,10 @@ C_GEODE         equ     5
 C_HERO          equ     6               ; (start places: air once read)
 C_GUARD         equ     7
 C_EXIT          equ     8               ; the hidden exit ladder
+C_DIG1          equ     9               ; (holes.inc) brick being dug: solid
+C_DIG2          equ     10
+C_FILL1         equ     11              ; ... a hole filling: open
+C_FILL2         equ     12
 
                 org     LOW
 lv_buf          rmb     LV_RECORD       ; a level as read
@@ -82,6 +94,14 @@ hu_below        rmb     1
 ca_c            rmb     1               ; cell_at
 ca_p            rmb     2
 guards          rmb     A_SIZE*MAX_GUARDS ; the guards' actor records
+h_dig           rmb     1               ; hero.inc: frames left digging
+h_dead          rmb     1               ; ... nonzero: a hole filled on him
+hu_dc           rmb     1               ; ... the side he digs (-1, 1)
+holes           rmb     HOLES*O_SIZE    ; holes.inc
+ho_rc           rmb     2
+ho_m            rmb     2
+ho_p            rmb     2
+ho_n            rmb     1
 dc_tl           rmb     1               ; draw.inc
 cp_a            rmb     2               ; act_update: the actor,
 cp_b            rmb     2               ; ... one being drawn into the shadow,
@@ -116,6 +136,7 @@ new_level:
                 jsr     lv_load         ; the level from the SD card
                 bcs     no_file
                 jsr     lv_actors
+                jsr     holes_init
                 jsr     gfx_cls
                 jsr     lv_draw
                 jsr     status_draw
@@ -132,11 +153,19 @@ loop:
 dbg_f1:
                 endif
                 jsr     hero_update
+                jsr     hole_update
                 jsr     hero_pose
                 ldx     #hero_a
                 jsr     act_update
-                ldaa    joy             ; SPACE: the next level
-                anda    #J_FIRE
+                tst     h_dead          ; a hole filled on him: again
+                bne     died
+                ldaa    #$FF-$40        ; N (column 6, row 1): the next level
+                staa    P1DAT
+                ldaa    KBD
+                ldab    #$FF
+                stab    P1DAT
+                coma
+                anda    #$02
                 tab
                 eora    key_was         ; (on the press)
                 stab    key_was
@@ -149,6 +178,19 @@ dbg_f1:
                 ldaa    #1
 nl_f1:          staa    level
                 bra     new_level
+
+died:
+                ldx     #fx_die
+                ldaa    #9
+                jsr     snd_play
+                ldaa    #90             ; a moment, then the level again
+dd_b1:          psha
+                jsr     frame_wait
+                jsr     snd_frame
+                pula
+                deca
+                bne     dd_b1
+                jmp     new_level
 
 no_file:
                 jsr     gfx_cls
@@ -314,6 +356,7 @@ ld_b2:          pshb
 ; a cell code's tile (brick is worked out from its neighbours)
 celltile:       fcb     T_AIR, T_BRICK, T_STONE, T_LADDER, T_CABLE, T_GEODE
                 fcb     T_AIR, T_AIR, T_AIR     ; hero, guard: sprites; the exit: hidden
+                fcb     T_DIG1, T_DIG2, T_DIG1, T_DIG2  ; digging, filling
 
 ; the screen address of each level row (the status line is row 0)
 rowaddr:
@@ -402,6 +445,12 @@ fx_step:        fcb     1, SND_TONE     ; a footstep: a faint low tick (~37 Hz)
 fx_land:        fcb     3, SND_NOISE    ; landing: a thump
                 fdb     1400, 200
                 fcb     0
+fx_dig:         fcb     DIG_T, SND_NOISE ; digging: a crunch
+                fdb     500, 60
+                fcb     0
+fx_die:         fcb     40, SND_TONE    ; caught in a hole: a falling whine
+                fdb     N_C5, 12
+                fcb     0
 
 s_file:         fcc     "LEVELS.DAT"
 S_FILE_LEN      equ     *-s_file
@@ -413,6 +462,7 @@ s_lives:        fcc     "  LIVES 3"
                 fcb     0
 
 #include "hero.inc"
+#include "holes.inc"
 #include "draw.inc"
 #include "gfx.asm"
 #include "frame.asm"
