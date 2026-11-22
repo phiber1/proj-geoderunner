@@ -13,6 +13,8 @@
 H_WALK          equ     8               ; frames to walk a cell (1 pixel / 2)
 H_CLIMB         equ     10              ; ... to climb one (climbtab)
 H_FALL          equ     12              ; ... to fall one (a row a frame)
+LAND_LEAD       equ     4               ; frames before touchdown the thud starts
+                                        ; (sound reaches the ear a few frames late)
 
 D_NONE          equ     0               ; h_dir: the move under way
 D_LEFT          equ     1
@@ -124,8 +126,8 @@ hu_f4:          inc     h_y             ; falling: a row a frame
 hu_next:        dec     h_t
                 bne     hu_n1
                 jmp     hu_decide       ; there: on to the next move at once
-hu_n1:          ldaa    h_t             ; a frame before landing: the thud
-                cmpa    #1              ; (it feels late on the landing frame)
+hu_n1:          ldaa    h_t             ; just before landing: the thud
+                cmpa    #LAND_LEAD
                 bne     hu_nr
                 ldaa    h_dir
                 cmpa    #D_FALL
@@ -136,6 +138,7 @@ hu_n1:          ldaa    h_t             ; a frame before landing: the thud
                 ldx     #fx_land
                 ldaa    #2
                 jsr     snd_play
+                jsr     snd_frame       ; (to the speaker now, not next frame)
 hu_nr:          rts
 
 ; lands: Z set if the cell he's moving to (h_r, h_c) will hold him up: a

@@ -672,8 +672,8 @@ ad_f1:          ldx     #hero_a
 fx_step:        fcb     1, SND_TONE     ; a footstep: a faint low tick (~37 Hz)
                 fdb     12000, 0
                 fcb     0
-fx_land:        fcb     2, SND_TONE     ; landing: a sharp low thud, loud at once
-                fdb     3000, 1500
+fx_land:        fcb     LAND_LEAD, SND_TONE ; landing: a sharp low thud, loud at
+                fdb     3000, 800       ; once, from just before touchdown to it
                 fcb     0
 fx_dig:         fcb     DIG_T, SND_NOISE ; digging: a crunch
                 fdb     500, 60
