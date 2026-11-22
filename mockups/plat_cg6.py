@@ -25,9 +25,9 @@ RGB = {GREEN: (40, 224, 40), YELLOW: (240, 240, 80), BLUE: (40, 40, 220), RED: (
 # roles -> colors, per scheme ('.' is the background)
 SCHEMES = {
     'blue':  {'.': BLUE, 'B': RED, 'S': GREEN, 's': BLUE, 'L': YELLOW, 'G': YELLOW, 'g': GREEN,
-              'H': YELLOW, 'h': GREEN, 'E': RED, 'e': YELLOW, 'T': YELLOW},
+              'H': YELLOW, 'h': GREEN, 'E': RED, 'e': YELLOW, 'T': YELLOW, 'X': GREEN},
     'green': {'.': GREEN, 'B': RED, 'S': BLUE, 's': GREEN, 'L': YELLOW, 'G': YELLOW, 'g': RED,
-              'H': YELLOW, 'h': BLUE, 'E': RED, 'e': YELLOW, 'T': BLUE},
+              'H': YELLOW, 'h': BLUE, 'E': RED, 'e': YELLOW, 'T': BLUE, 'X': BLUE},
 }
 
 TILES = {
@@ -39,6 +39,14 @@ TILES = {
           "L..L", "LLLL", "L..L", "L..L"],
     'T': ["....", "....", "....", "....", ".GG.", "GgGG", "GGGG", ".Gg.",
           "..G.", "....", "....", "...."],
+    'b': ["BBB.", "BBB.", "BBB.", "....", "B.BB", "B.BB", "B.BB", "....",   # brick on brick:
+          "BBB.", "BBB.", "BBB.", "...."],                                  # down to the next
+    'c': ["B.BB", "B.BB", "B.BB", "....", "BBB.", "BBB.", "BBB.", "....",   # the brick under
+          "....", "....", "....", "...."],                                  # (courses offset)
+    '-': ["LLLL", "....", "....", "....", "....", "....", "....", "....",   # a cable
+          "....", "....", "....", "...."],
+    'X': ["X..X", "XXXX", "X..X", "X..X", "X..X", "XXXX", "X..X", "X..X",   # the hidden
+          "X..X", "XXXX", "X..X", "X..X"],                                  # exit ladder
 }
 SPRITES = {
     'P': ["..hh..", ".hhhh.", ".HHHH.", ".H.HH.", "..HH..", "hhhhhh",
@@ -48,7 +56,8 @@ SPRITES = {
 }
 
 
-def main(name):
+def render(level, status, name='blue'):
+    """a level (15 strings of 32 cells) and a status line -> rows of color indices"""
     col = SCHEMES[name]
     px = [[col['.']] * (COLS * W) for _ in range(ROWS * H)]
 
@@ -58,17 +67,32 @@ def main(name):
                 if c != '.' and 0 <= x0 + x < COLS * W:
                     px[y0 + y][x0 + x] = col[c]
 
-    for i, ch in enumerate(STATUS.ljust(COLS)):     # the 3x5 font, rows doubled
+    for i, ch in enumerate(status.ljust(COLS)[:COLS]):     # the 3x5 font, rows doubled
         for y, r in enumerate(FONT.get(ch, FONT[' ']).split()):
             for x, c in enumerate(r):
                 if c == '#':
                     px[1 + 2 * y][i * W + x] = px[2 + 2 * y][i * W + x] = col['T']
-    for y, r in enumerate(LEVEL):
+    for y, r in enumerate(level):
         for x, ch in enumerate(r):
+            if ch == 'B':                           # a floor two bricks deep
+                above = level[y - 1][x] if y > 0 else '.'
+                below = level[y + 1][x] if y + 1 < len(level) else '.'
+                ch = 'b' if below == 'B' else 'c' if above == 'B' else 'B'
             if ch in TILES:
                 put(TILES[ch], x * W, (y + 1) * H)
             elif ch in SPRITES:
                 put(SPRITES[ch], x * W - 1, (y + 1) * H)
+    return px
+
+
+def image(px):
+    img = Image.new('RGB', (128, 192))
+    img.putdata([RGB[v] for row in px for v in row])
+    return img
+
+
+def main(name):
+    px = render(LEVEL, STATUS, name)
 
     with open(f'build/mockup_{name}.inc', 'w') as f:
         f.write(f"; the CG6 mock-up on {name} (mockups/plat_cg6.py), 32 bytes x 192 rows\n")
@@ -76,9 +100,7 @@ def main(name):
             b = [(row[i] << 6) | (row[i + 1] << 4) | (row[i + 2] << 2) | row[i + 3] for i in range(0, 128, 4)]
             for j in range(0, 32, 16):
                 f.write("                fcb     " + ",".join(f"${v:02X}" for v in b[j:j + 16]) + "\n")
-    img = Image.new('RGB', (128, 192))
-    img.putdata([RGB[v] for row in px for v in row])
-    img.resize((768, 576), Image.NEAREST).save(f'build/mockup_{name}.png')
+    image(px).resize((768, 576), Image.NEAREST).save(f'build/mockup_{name}.png')
 
 
 if __name__ == '__main__':

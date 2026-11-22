@@ -21,7 +21,13 @@ thieves try to carry them off.  Built on
 
 Needs `asl` (the Macroassembler AS), a C compiler, cpp and Python 3 (with
 Pillow for the mock-ups).  Also: `make run-view` (the sprites),
-`make run-mockup_blue` (an early still mock-up of a level).
+`make run-mockup_blue` (an early still mock-up of a level), `make sheet`
+(`build/levels.png`: a contact sheet of generated levels).
+
+Levels are generated: level N is always the same level, made by
+`tools/levelgen.py` (a Python prototype of the generator the game will
+carry).  Geodes are only placed where the hero can both reach and leave,
+so every level can be finished.
 
 ## Licence
 

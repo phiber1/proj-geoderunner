@@ -9,6 +9,8 @@
 #                        (VIEW=sprites/NAME.spr, default sprites/geode.spr)
 #   make run-mockup      early still mock-ups: mono RG6 (mockups/plat.py);
 #                        run-mockup_blue, run-mockup_green: CG6
+#   make sheet           build/levels.png: a contact sheet of generated levels
+#                        (tools/levelgen.py; LEVELS="1 2 3 ..." to choose)
 #   make DEBUG=0         release build: no debug-port writes
 #
 # On the SD card the game is GEODE.BIN (RUNM"GEODE").
@@ -61,6 +63,11 @@ build/mockup_%.inc build/mockup_%.png: mockups/plat_cg6.py mockups/plat.py | bui
 build/mockup_%.s: src/mockup.asm build/mockup_%.inc $(ENGSRC) | build
 	$(CC) $(CPPFLAGS) -DMK_CG6 -DMK_SCR='"mockup_$*.inc"' $(CPPDEFS) $< -o $@
 
+# The level generator's contact sheet
+LEVELS  ?= 1 2 3 5 8 12 20 30 45 60 100 250
+sheet: tools/levelgen.py mockups/plat_cg6.py | build
+	python3 tools/levelgen.py --sheet build/levels.png $(LEVELS)
+
 # The sprite viewer (the engine's), in the sprite file's mode
 VIEW    ?= sprites/geode.spr
 build/view_spr.inc: FORCE build/spritec | build
@@ -83,5 +90,5 @@ run-%: build/%.bin
 clean:
 	rm -rf build
 
-.PHONY: all clean run FORCE
+.PHONY: all clean run sheet FORCE
 .PRECIOUS: build/%.s build/%.p build/%_spr.inc build/%.bin
