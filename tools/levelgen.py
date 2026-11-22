@@ -42,7 +42,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 def params(n):
     """difficulty for level n (1 = easiest)"""
-    t = min(1.0, (n - 1) / 60)              # ramps up over the first 60 levels
+    t = min(1.0, (n - 1) / 80)              # ramps up over the first 80 levels
     return dict(
         t=t,
         stone=0.08 + 0.32 * t,              # share of floor that is stone
@@ -51,7 +51,7 @@ def params(n):
         cables=0.0 if n < 3 else 0.25 + 0.35 * t,        # chance a gap gets a cable
         double=0.0 if n < 8 else 0.15 + 0.35 * t,        # chance of two-deep brick
         geodes=6 + int(6 * t),
-        dig_geodes=0 if n < 2 else 1 + int(3 * t),       # geodes only digging reaches
+        dig_geodes=0 if n < 4 else 1 + int(3 * t),       # geodes only digging reaches
         thieves=min(5, 1 + n // 6),
     )
 
@@ -249,13 +249,16 @@ def add_double(g, rnd, P):
                         g[r + 1][y] = 'B'
 
 
-def style_floors(rnd, P):
-    """floors right across, at varying heights, with gaps"""
+def style_floors(rnd, P, even=False):
+    """floors right across, at varying heights (or evenly spaced, for the
+    first levels), with gaps"""
     g = blank()
     rows, r = [], rnd.randint(2, 3)
     while r <= 11:
         rows.append(r)
         r += rnd.choice((3, 3, 3, 4, 2)) if r < 10 else 4
+    if even:
+        rows = [2, 5, 8, 11]
     for f in rows:
         c = 0
         while c < COLS:
@@ -432,20 +435,21 @@ def mirror(g):
     return g
 
 
-STYLES = {'floors': style_floors, 'ledges': style_ledges, 'rooms': style_rooms,
+STYLES = {'first': lambda rnd, P: style_floors(rnd, P, even=True), 'floors': style_floors, 'ledges': style_ledges, 'rooms': style_rooms,
           'pyramid': style_pyramid, 'cavern': style_cavern}
 
 
 def style_for(n):
-    """the style of level n"""
+    """the style of level n: the first ten gentle, new styles joining every
+    ten levels"""
     if n % 10 == 0:
         return 'word'
-    if n <= 4:
-        return 'floors'
+    if n < 10:
+        return 'first'
     choices = ['floors', 'ledges', 'rooms']
-    if n > 10:
+    if n > 20:
         choices += ['pyramid', 'ledges']
-    if n > 15:
+    if n > 30:
         choices += ['cavern', 'rooms']
     return random.Random(n * 31 + 7).choice(choices)
 
@@ -513,7 +517,7 @@ def candidate(n, seed):
         g, keep = style_word(rnd, P, WORDS[(n // 10 - 1) % len(WORDS)])
     else:
         g = STYLES[style](rnd, P)
-        if n > 12 and style != 'cavern' and rnd.random() < 0.3:
+        if n > 20 and style not in ('cavern', 'first') and rnd.random() < 0.3:
             g = mirror(g)
             style += ', mirrored'
         add_cables(g, rnd, P)

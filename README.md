@@ -26,7 +26,7 @@ Pillow for the mock-ups).  Also: `make run-view` (the sprites),
 
 Levels are generated: level N is always the same level, made by
 `tools/levelgen.py` (a Python prototype of the generator the game will
-carry).  They come in styles that mix more as the levels go up: floors,
+carry).  The first levels are gentle; new styles join every ten levels: floors,
 staggered ledges, rooms walled with stone, a brick pyramid with hidden
 chambers, caverns dug out of solid rock, mirror images, and every 10th
 level a message spelled out in ladders.  Geodes are only placed where the

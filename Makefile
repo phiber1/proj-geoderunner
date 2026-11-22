@@ -64,7 +64,7 @@ build/mockup_%.s: src/mockup.asm build/mockup_%.inc $(ENGSRC) | build
 	$(CC) $(CPPFLAGS) -DMK_CG6 -DMK_SCR='"mockup_$*.inc"' $(CPPDEFS) $< -o $@
 
 # The level generator's contact sheet
-LEVELS  ?= 1 6 9 10 13 17 18 20 23 30 60 100
+LEVELS  ?= 1 3 5 8 10 12 15 21 25 33 36 60
 sheet: tools/levelgen.py mockups/plat_cg6.py | build
 	python3 tools/levelgen.py --sheet build/levels.png $(LEVELS)
 
