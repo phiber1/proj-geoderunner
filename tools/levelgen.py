@@ -21,8 +21,8 @@ climbing, hanging, falling, and digging down through one or two layers of
 brick) and where he can get back from, and adds ladders until nearly all
 of the level is both.  Geodes go only where he can get to and back from,
 so they can be collected in any order; the exit ladder climbs to the top
-from such a place.  Several candidates are made and the most interesting
-kept.
+from such a place, in the leftmost or rightmost column.  Several
+candidates are made and the most interesting kept.
 
     python3 tools/levelgen.py N [N2 ...]     print levels
     python3 tools/levelgen.py --sheet OUT.png N1 N2 ...   a contact sheet
@@ -459,6 +459,10 @@ def style_word(rnd, P, words):
                                 g[y + 1][x] = 'B'
                     else:                                   # a horizontal stroke
                         g[y][x] = g[y][x + 1] = 'B'
+    # ledges in the top corners, for the exit ladder at an edge
+    for c0 in (0, COLS - 3):
+        if all(g[y][x] == '.' for y in (1, 2) for x in range(c0, c0 + 3)):
+            floor_run(g, rnd, dict(P, stone=0), 2, c0, c0 + 3)
     # ledges in the space around the text
     near = {(y + dy, x + dx) for (y, x) in keep for dy in (-1, 0, 1) for dx in (-2, -1, 0, 1, 2)}
     for _ in range(30):
@@ -531,9 +535,16 @@ def place(g, rnd, P, start):
     if len(easy) < P['geodes'] - k:
         return None
     geodes = rnd.sample(needdig, k) + rnd.sample(easy, P['geodes'] - k)
-    # the exit: a column climbing from a two-way cell to the top
-    cands = [p for p in sorted(both) if standing(g, p) and p[0] <= 9 and p not in geodes]
-    rnd.shuffle(cands)
+    # the exit: a column climbing from a two-way cell to the top, at the far
+    # left or the far right, never in the middle
+    # (one starting from row 9 or higher if there is one, else from lower)
+    edge = [p for p in sorted(both) if standing(g, p) and p not in geodes
+            and p[1] in (0, COLS - 1)]
+    high = [p for p in edge if p[0] <= 9]
+    low = [p for p in edge if p[0] > 9]
+    rnd.shuffle(high)
+    rnd.shuffle(low)
+    cands = high + low
     exit_at = None
     for (r, c) in cands[:40]:
         if all(at(g, y, c) in '.B-S' for y in range(0, r)):
