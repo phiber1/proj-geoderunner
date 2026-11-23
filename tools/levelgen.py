@@ -62,7 +62,7 @@ def params(n):
         double=0.0 if n < 8 else 0.15 + 0.35 * t,        # chance of two-deep brick
         geodes=6 + int(6 * t),
         dig_geodes=0 if n < 4 else 1 + int(3 * t),       # geodes only digging reaches
-        guards=min(4, 1 + n // 6),          # (4 at most: the MC-10 keeps up)
+        guards=1 if n < 3 else 2 if n < 12 else 3 if n < 18 else 4,  # (4 at most: the MC-10 keeps up)
         bottom=0.0 if n < 60 else min(1.0, (n - 60) / 60),  # stone in the bottom floor
     )
 
