@@ -252,7 +252,7 @@ gd_f2:          ldaa    gd_here         ; held up?
                 staa    gd_below
                 cmpa    #C_LADDER
                 beq     gd_held
-                jsr     is_solid
+                jsr     guard_solid
                 beq     gd_held
                 ldaa    gs_r            ; (on a trapped guard's head)
                 inca
@@ -316,7 +316,7 @@ gd_below_h:     ldaa    gd_below        ; a ladder below: down it
 gd_d1:          tst     gs_on           ; on a ladder or cable over air: drop
                 beq     gd_d2
                 ldaa    gd_below
-                jsr     is_solid
+                jsr     guard_solid
                 beq     gd_d2
                 ldaa    gs_r
                 inca
@@ -534,13 +534,13 @@ gw_down:        ldaa    gd_wb           ; down: a ladder below, or no floor
                 cmpa    #C_LADDER
                 beq     gw_no
                 ldaa    gd_wb
-                jsr     is_solid
+                jsr     guard_solid
                 bne     gw_yes          ; (no floor: he'd drop: a way down)
 gw_no:          clc
                 ldaa    #1
                 rts
 gw_cab:         ldaa    gd_wb           ; a cable over air: let go
-                jsr     is_solid
+                jsr     guard_solid
                 beq     gw_no
 gw_yes:         clc
                 clra
@@ -556,19 +556,37 @@ gw_floor:                               ; walkable past: floor, ladder or cable
                 ldaa    gd_wb
                 cmpa    #C_LADDER
                 beq     gwf_ok
-                jsr     is_solid
+                jsr     guard_solid
                 beq     gwf_ok
                 sec
                 rts
 gwf_ok:         clc
                 rts
 
+; guard_solid: A = a code: Z set if it holds a guard up: as is_solid, and
+; a hole that's closing (guards don't fall into one: they wait for it)
+guard_solid:
+                cmpa    #C_FILL1
+                beq     gso_r
+                cmpa    #C_FILL2
+                beq     gso_r
+                jmp     is_solid
+gso_r:          rts
+
 ; gd_free: A = row, B = column: Z set if the guard can move there (not a
-; wall, no other guard there)
+; wall, not over a closing hole, no other guard there)
 gd_free:
                 std     gd_fr
                 jsr     cell_at
                 jsr     is_solid
+                beq     gf_no
+                ldaa    gd_fr           ; (over a hole that's closing: he waits
+                inca                    ; for it to close)
+                ldab    gd_fr+1
+                jsr     cell_at
+                cmpa    #C_FILL1
+                beq     gf_no
+                cmpa    #C_FILL2
                 beq     gf_no
                 ldd     gd_fr
                 jsr     guard_in
@@ -649,8 +667,8 @@ gd_redraw:
                 std     gs+A_OSPR
                 rts
 
-; guard_pose: the guard in gs: falling, climbing (or on a cable, or
-; trapped), walking (stride, legs together, facing his way), standing
+; guard_pose: the guard in gs: falling, on a cable (hand over hand),
+; climbing (or trapped), walking (stride, legs together, facing his way), standing
 guard_pose:
                 ldx     #guard_f_hr
                 ldaa    gs_dir
@@ -667,6 +685,12 @@ gp_f1:          tst     gs_t
                 ldab    #2
 gp_f2:          ldaa    gs_st
                 bne     gp_climb        ; (trapped)
+                ldaa    gs_on           ; on a cable: hand over hand
+                cmpa    #2
+                bne     gp_f3
+                ldx     #guard_h0
+                bra     gp_pick
+gp_f3:
                 ldaa    gs_dir
                 cmpa    #D_UP
                 beq     gp_climb
@@ -690,6 +714,7 @@ gp_set:         stx     gs_spr
 guard_r0:       fdb     guard_r0_hr, guard_r1_hr
 guard_l0:       fdb     guard_l0_hr, guard_l1_hr
 guard_c0:       fdb     guard_c0_hr, guard_c1_hr
+guard_h0:       fdb     guard_h0_hr, guard_h1_hr
 
 ; guard_bury: A = row, B = column (a hole that just filled): a guard
 ; trapped there is buried: 75 points, and he comes back at the top

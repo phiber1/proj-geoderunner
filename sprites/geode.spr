@@ -245,3 +245,33 @@ R.RR.R
 R....R
 ......
 end
+
+sprite guard_h0 cg6 halo 0 bg B noerase
+R....R
+.R..R.
+.RRRR.
+RRRRRR
+RYRRYR
+RRRRRR
+.RRRR.
+..RR..
+.R..R.
+.R..R.
+R....R
+......
+end
+
+sprite guard_h1 cg6 halo 0 bg B noerase
+R....R
+.R..R.
+.RRRR.
+RRRRRR
+RYRRYR
+RRRRRR
+.RRRR.
+..RR..
+..RR..
+..RR..
+..RR..
+......
+end

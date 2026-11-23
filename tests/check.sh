@@ -137,7 +137,29 @@ GW=$(sym gu_walk)
 w1=$(run mem:$GW,1 | byte $GW); w2=$(run poke:$LV,96 poke:$HD,01 frames:150 mem:$GW,1 | byte $GW)
 check "guard speed: $w1 frames a cell on level 1, $w2 on level 150" "[ $w1 -gt $w2 ]"
 
-# 15. The release build assembles (no debug hooks).
+# 15. A guard doesn't cross a hole that's closing: he waits at its edge
+#     until it has closed, then walks over it (he used to fall in and,
+#     if it closed meanwhile, on through the floor).  The scene: a hole
+#     filling at (14, 28), the guard at (13, 27), the hero at (13, 30).
+HOLES=$(sym holes)
+samples=""; for i in $(seq 1 16); do samples="$samples frames:5 mem:$G0R,2"; done
+out=$(run poke:$DS,01 poke:$JF,04 frames:2 poke:$JF,08 frames:2 poke:$JF,00 frames:20 \
+      poke:$HOLES,0E1C030018 poke:$(cell 14 28),0C poke:$GUARDS,6CA8 poke:$G0R,0D1B0000000000 $samples)
+pos=$(echo "$out" | grep "^mem $G0R" | cut -d: -f2 | tr -d ' ' | tr '\n' ' ')
+first=$(echo "$out" | grep "^mem $G0R" | head -4 | cut -d: -f2 | tr -d ' ' | sort -u | tr '\n' ' ')
+fell=$(echo "$out" | grep "^mem $G0R" | cut -d: -f2 | awk '$1!="0D"' | wc -l)
+check "a guard waits at a closing hole (first $first), never falls in ($fell below row 13), then crosses ($(echo "$out" | bytes $G0R 16))" \
+      "[ \"$first\" = '0D1B ' ] && [ $fell -eq 0 ] && [ $(echo "$out" | bytes $G0R 16) != 0D1B ]"
+
+# 16. A guard on a cable hangs from it hand over hand (its own poses).
+HH0=$(sym guard_h0_hr); HH1=$(sym guard_h1_hr); GSPR=$(off $GUARDS 4)
+out=$(run poke:$DS,01 poke:$JF,04 frames:2 poke:$JF,08 frames:2 poke:$JF,00 frames:4 \
+      poke:$(cell 13 18),040404040404040404 poke:$GUARDS,48A8 poke:$G0R,0D120000000000 frames:30 mem:$GSPR,2 frames:7 mem:$GSPR,2)
+p1=$(echo "$out" | bytes $GSPR 1); p2=$(echo "$out" | bytes $GSPR 2)
+check "a guard on a cable hangs from it (poses $p1, $p2: guard_h0 $HH0, guard_h1 $HH1)" \
+      "{ [ $p1 = $HH0 ] || [ $p1 = $HH1 ]; } && { [ $p2 = $HH0 ] || [ $p2 = $HH1 ]; }"
+
+# 17. The release build assembles (no debug hooks).
 make --no-print-directory -s DEBUG=0 build/geode.bin > $D/rel.log 2>&1; st=$?
 check "the release build (DEBUG=0) assembles" "[ $st -eq 0 ]"
 make --no-print-directory -s -B build/geode.bin > /dev/null 2>&1      # (back to the debug build)
