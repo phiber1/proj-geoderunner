@@ -137,6 +137,7 @@ gd_fr           rmb     2
 gd_m            rmb     2
 gd_rp           rmb     2
 gd_n            rmb     1
+gd_hr           rmb     1
 gu_walk         rmb     1               ; this level's guard speeds
 gu_climb        rmb     1
 seed            rmb     2

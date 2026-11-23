@@ -286,7 +286,7 @@ gd_held:        tst     gs_carry        ; carried long enough: put it down
                 jsr     gd_redraw
                 clr     gs_carry
 ; tracking the hero
-gd_think:       ldaa    h_r
+gd_think:       jsr     gd_hrow         ; (a falling hero: where he'll land)
                 cmpa    gs_r
                 beq     gd_level
                 bcc     gd_below_h
@@ -340,6 +340,10 @@ gd_toward:      ldaa    gd_goal
                 incb
                 jsr     gd_free
                 bne     gd_stand
+                ldab    gs_c
+                incb
+                jsr     gd_inpath
+                beq     gd_stand
                 inc     gs_c
                 clr     gs_face
                 ldaa    #D_RIGHT
@@ -349,6 +353,10 @@ gd_tl:          ldaa    gs_r            ; left
                 decb
                 jsr     gd_free
                 bne     gd_stand
+                ldab    gs_c
+                decb
+                jsr     gd_inpath
+                beq     gd_stand
                 dec     gs_c
                 ldaa    #1
                 staa    gs_face
@@ -417,6 +425,59 @@ gd_trap:        ldaa    #GS_TRAP
                 jsr     draw_cell
                 jsr     gd_redraw
 gt2_r:          rts
+
+; gd_inpath: B = a column the guard would step into (on his row): Z set
+; if the hero is falling down that column past the guard's row (from his
+; row, a cell above, to where he'll land): a guard doesn't step out into a
+; hero dropping past him
+gd_inpath:
+                ldaa    h_dir
+                cmpa    #D_FALL
+                bne     gip_no
+                cmpb    h_c
+                bne     gip_no
+                ldaa    h_r             ; (h_r - 1) <= his row <= landing row
+                deca
+                cmpa    gs_r
+                bgt     gip_no
+                jsr     gd_hrow
+                cmpa    gs_r
+                blt     gip_no
+                clra                    ; (Z)
+                rts
+gip_no:         ldaa    #1
+                rts
+
+; gd_hrow: A = the hero's row as the guards see it: his row, or while he
+; falls the row he'll land on (so a guard doesn't step out at a hero
+; dropping past him, as if he were on the guard's row for that moment)
+gd_hrow:
+                ldaa    h_r
+                ldab    h_dir
+                cmpb    #D_FALL
+                bne     ghr_r
+                staa    gd_hr
+ghr_b1:         ldaa    gd_hr           ; held up here?  a ladder or cable,
+                ldab    h_c
+                jsr     cell_at
+                cmpa    #C_LADDER
+                beq     ghr_f1
+                cmpa    #C_CABLE
+                beq     ghr_f1
+                ldaa    gd_hr           ; ... floor or ladder below
+                inca
+                ldab    h_c
+                jsr     cell_at
+                cmpa    #C_LADDER
+                beq     ghr_f1
+                jsr     is_solid
+                beq     ghr_f1
+                inc     gd_hr
+                ldaa    gd_hr
+                cmpa    #LV_ROWS-1
+                bcs     ghr_b1
+ghr_f1:         ldaa    gd_hr
+ghr_r:          rts
 
 ; gd_scan: A = 1 to look for a way up, 2 for a way down: gd_goal = the
 ; column of the nearest one along his floor (walking: no wall, no gap in

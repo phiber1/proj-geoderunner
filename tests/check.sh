@@ -168,7 +168,20 @@ check "on a guard's head: stands ($(echo "$out" | bytes $HR 1)), walks off and d
 out=$(run $HEAD frames:40 poke:$JF,02 frames:4 poke:$JF,00 frames:150 mem:$LI,1)
 check "pressing down on a guard's head: caught (lives $(echo "$out" | byte $LI))" "[ $(echo "$out" | byte $LI) -eq 2 ]"
 
-# 18. The release build assembles (no debug hooks).
+# 18. Dropping past a guard on the ladder beside him is safe: the guard
+#     doesn't step out into a falling hero (he did, seeing him "on his
+#     row" for a moment).  The scene, on level 1: the floor under the hero
+#     at (10, 24) opened, a ladder at column 25 (rows 11-13) with a guard
+#     on it at (11, 25); the hero falls to (13, 24).
+FALL="poke:$(cell 11 24),00 poke:$(cell 11 25),03 poke:$(cell 12 25),03 poke:$(cell 13 25),03 poke:$GUARDS,6490 poke:$G0R,0B190000000000 poke:$HERO,6084 poke:$HR,0A18"
+samples=""; for i in $(seq 1 10); do samples="$samples frames:4 mem:$HR,2 mem:$LI,1"; done
+out=$(run $FALL $samples)
+rows=$(echo "$out" | grep "^mem $HR" | cut -d: -f2 | tr -d ' ' | tr '\n' ' ')
+lost=$(echo "$out" | grep "^mem $LI" | awk '$3!="03"' | wc -l)
+check "dropping past a guard on the next ladder: safe (cells $rows, lives lost $lost)" \
+      "[ $lost -eq 0 ] && [ $(echo "$out" | bytes $HR 10) = 0D18 ]"
+
+# 19. The release build assembles (no debug hooks).
 make --no-print-directory -s DEBUG=0 build/geode.bin > $D/rel.log 2>&1; st=$?
 check "the release build (DEBUG=0) assembles" "[ $st -eq 0 ]"
 make --no-print-directory -s -B build/geode.bin > /dev/null 2>&1      # (back to the debug build)
