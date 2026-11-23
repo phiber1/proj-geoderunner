@@ -25,7 +25,7 @@
 G_WALK          equ     10              ; frames to walk a cell (the hero: 8)
 G_CLIMB         equ     12              ; ... climb one (a row a frame)
 G_FALL          equ     12              ; ... fall one
-TRAP_T          equ     150             ; frames stuck in a hole before climbing out
+TRAP_T          equ     210             ; frames stuck in a hole before climbing out
 CARRY_T         equ     600             ; frames a geode is carried at most
 
 GS_FREE         equ     0               ; G_ST: chasing,

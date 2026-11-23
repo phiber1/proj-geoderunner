@@ -145,7 +145,21 @@ act_update:
                 bne     au_go
                 rts
 au_go:          stx     cp_a
-                ldaa    A_OX,x          ; the patch: the bytes the two places
+                ldaa    A_OY,x          ; moved further than a step (a
+                suba    A_Y,x           ; respawn)?  Then erase the old place
+                bpl     au_t1           ; by itself: the patch must stay
+                nega                    ; within the shadow
+au_t1:          cmpa    #12
+                bhi     au_tele
+                ldaa    A_OX,x
+                suba    A_X,x
+                bpl     au_t2
+                nega
+au_t2:          cmpa    #4
+                bls     au_go2
+au_tele:        jsr     act_erase
+                ldx     cp_a
+au_go2:         ldaa    A_OX,x          ; the patch: the bytes the two places
                 bsr     sprite_x        ; cover (2 to 4 across)
                 staa    cp_t
                 ldx     cp_a
@@ -332,6 +346,68 @@ au_done:
                 ldd     A_SPR,x
                 std     A_OSPR,x
                 rts
+
+; act_erase: X = an actor: redraw the cells under where it was last drawn
+; (and have everyone redrawn over them), and call that its old place now
+act_erase:
+                stx     cp_b
+                ldaa    A_OX,x          ; columns: (sx) / 4 .. (sx + 5) / 4
+                jsr     sprite_x
+                staa    cp_t
+                lsra
+                lsra
+                staa    ae_c0
+                ldaa    cp_t
+                adda    #5
+                lsra
+                lsra
+                staa    ae_c1
+                ldx     cp_b            ; rows: oy / 12 - 1 .. (oy + 11) / 12 - 1
+                ldaa    A_OY,x
+                jsr     div12
+                deca
+                staa    ae_r
+                ldx     cp_b
+                ldaa    A_OY,x
+                adda    #11
+                jsr     div12
+                deca
+                cmpa    #LV_ROWS-1
+                bls     ae_f1
+                ldaa    #LV_ROWS-1
+ae_f1:          staa    ae_r1
+ae_b1:          ldaa    ae_c0
+                staa    ae_c
+ae_b2:          ldaa    ae_r
+                bmi     ae_f2
+                ldab    ae_c
+                jsr     draw_cell
+ae_f2:          inc     ae_c
+                ldaa    ae_c
+                cmpa    ae_c1
+                bls     ae_b2
+                inc     ae_r
+                ldaa    ae_r
+                cmpa    ae_r1
+                ble     ae_b1
+                ldx     cp_b            ; now its old place is where it is
+                ldd     A_X,x
+                std     A_OX,x
+                ldd     #0              ; (and everyone drawn again)
+                std     hero_a+A_OSPR
+                ldx     #guards
+                ldab    nguard
+                beq     ae_r0
+ae_b3:          ldaa    #0
+                staa    A_OSPR,x
+                staa    A_OSPR+1,x
+                pshb
+                ldab    #GD_SIZE
+                abx
+                pulb
+                decb
+                bne     ae_b3
+ae_r0:          rts
 
 ; cp_actor: X = an actor: if it overlaps the patch, draw it into the shadow
 cp_actor:

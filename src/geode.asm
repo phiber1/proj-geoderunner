@@ -164,6 +164,11 @@ cp_sx           rmb     1
 cp_w            rmb     1               ; ... its width in bytes
 cp_tp           rmb     2               ; ... its tiles' row in tmap
 cp_y0           rmb     1               ; ... the rows the actor covers
+ae_c0           rmb     1               ; act_erase
+ae_c1           rmb     1
+ae_c            rmb     1
+ae_r            rmb     1
+ae_r1           rmb     1
 cp_y1           rmb     1
 score           rmb     3               ; BCD
 lives           rmb     1
