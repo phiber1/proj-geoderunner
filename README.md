@@ -18,6 +18,8 @@ upward, level after level, while the guards close in.  Built on
     cd proj-geoderunner
     make            # build/geode.bin (GEODE.BIN on the SD card: RUNM"GEODE")
     make run        # in the emulator (VMC10=path to vmc10-linux, default ~/vmc10-linux)
+    make check      # headless checks: the screen and tile map after play, movement,
+                    # digging, guards, geodes, the exit, lives, memory, speed
 
 Needs `asl` (the Macroassembler AS), a C compiler, cpp and Python 3 (with
 Pillow for the mock-ups).  Also: `make run-view` (the sprites),

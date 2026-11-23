@@ -9,6 +9,7 @@
 #                        (VIEW=sprites/NAME.spr, default sprites/geode.spr)
 #   make run-mockup      early still mock-ups: mono RG6 (mockups/plat.py);
 #                        run-mockup_blue, run-mockup_green: CG6
+#   make check           headless checks (needs the VMC10 for Linux emulator)
 #   make sheet           build/levels.png: a contact sheet of generated levels
 #                        (tools/levelgen.py; LEVELS="1 2 3 ..." to choose)
 #   make levels          build/LEVELS.DAT: the game's 150 levels (NLEVELS=...);
@@ -103,8 +104,12 @@ run-%: build/%.bin
 	cp $< $(SD)/$(shell echo $* | tr a-z A-Z).BIN
 	$(EMU) --mcx32sd --8k --sd $(SD) --type 'RUNM"$(shell echo $* | tr a-z A-Z)"\n'
 
+# Headless checks (needs the emulator's harness and ROMs: VMC10=...)
+check: build/geode.bin build/LEVELS.DAT
+	VMC10=$(VMC10) sh tests/check.sh
+
 clean:
 	rm -rf build
 
-.PHONY: all clean run sheet levels FORCE
+.PHONY: all check clean run sheet levels FORCE
 .PRECIOUS: build/%.s build/%.p build/%_spr.inc build/%.bin
