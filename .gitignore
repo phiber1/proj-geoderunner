@@ -8,3 +8,7 @@ __pycache__/
 .gitconfig
 .idea
 .profile
+.ripgreprc
+.vscode
+.zprofile
+.zshrc
