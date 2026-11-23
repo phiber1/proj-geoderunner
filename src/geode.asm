@@ -20,6 +20,10 @@ BIOS_SEEK       equ     8               ; MCX BIOS 'P': set the file position
                                         ; (32 bits: PB_BUF high, PB_LEN low)
 LV_FILE         equ     1               ; the file number LEVELS.DAT uses
 NLEVELS         equ     150
+LD_FANFARE      equ     40              ; level done: frames for the fanfare,
+LD_STEPS        equ     150             ; ... the bonus count-up's steps (of 10),
+LD_BOP          equ     3               ; ... frames between its bops,
+LD_AFTER        equ     45              ; ... frames before the next level
 LV_COLS         equ     32
 LV_ROWS         equ     15
 LV_CELLS        equ     LV_COLS*LV_ROWS
@@ -187,6 +191,8 @@ ex_state        rmb     1               ; ... 0 hidden, 1 growing, 2 there
 ex_row          rmb     1               ; ... growing: the next row,
 ex_t            rmb     1               ; ... frames to it
 w_n             rmb     1               ; wait
+ld_n            rmb     1               ; the level bonus count-up: steps,
+ld_t            rmb     1               ; ... frames to the next bop
 
                 org     CODE
 start:
@@ -269,8 +275,9 @@ lp_f0:          ldaa    #$FF-$04        ; BREAK (column 2, row 6: port 2's
                 beq     lp_f00
                 inc     h_dead
 lp_f00:          tst     h_dead          ; (or a hole filled on him)
-                bne     died
-                ldaa    ex_state        ; out at the top: the level is done
+                beq     lp_f01
+                jmp     died
+lp_f01:         ldaa    ex_state        ; out at the top: the level is done
                 cmpa    #2
                 bne     lp_f1
                 tst     h_r
@@ -298,17 +305,38 @@ lp_n1:          bra     next_level
                 endif
 
 level_done:
-                ldx     #fx_clear
+                ldx     #fx_clear       ; the fanfare,
                 ldaa    #8
                 jsr     snd_play
-                ldd     #$1500          ; 1500 points
+                ldaa    #LD_FANFARE
+                jsr     wait
+                ldaa    #LD_STEPS       ; then 1500 points counted up by
+                staa    ld_n            ; tens, a bop every LD_BOP frames
+                ldaa    #1
+                staa    ld_t
+lb_b1:          jsr     frame_wait
+                jsr     snd_frame
+                dec     ld_t
+                bne     lb_f1
+                ldaa    #LD_BOP
+                staa    ld_t
+                ldx     #fx_bop
+                ldaa    #8
+                jsr     snd_play
+lb_f1:          ldd     #$0010
                 jsr     score_add
+                jsr     status_score
+                dec     ld_n
+                bne     lb_b1
                 ldaa    lives           ; and a life (9 at most)
                 cmpa    #9
                 bcc     ld2_f1
                 inc     lives
 ld2_f1:         jsr     status_draw
-                ldaa    #90
+                ldx     #fx_gem
+                ldaa    #8
+                jsr     snd_play
+                ldaa    #LD_AFTER
                 jsr     wait
 next_level:
                 ldaa    level
@@ -800,6 +828,9 @@ fx_gem:         fcb     3, SND_TONE     ; a geode: bling
                 fcb     0
 fx_exit:        fcb     40, SND_TONE    ; the exit ladder grows: a rising sweep
                 fdb     N_C4, -20
+                fcb     0
+fx_bop:         fcb     2, SND_TONE     ; the bonus counting up: bop
+                fdb     N_G5, 40
                 fcb     0
 fx_clear:       fcb     6, SND_TONE     ; out: a little fanfare
                 fdb     N_C5, 0

@@ -106,11 +106,14 @@ check "a teleported guard leaves the memory past the buffers untouched" "[ \"$m1
 #     out at the top: the level done (1500 more, a life), level 2.
 EXC=$(python3 tools/levelgen.py 1 | awk 'NR>1 { i = index($0, "X"); if (i) { print i - 1; exit } }')
 out=$(run poke:$(cell 13 29),05 poke:$GL,01 poke:$JF,04 frames:9 poke:$JF,00 frames:4 mem:$SC,3 mem:$GL,1 frames:100 mem:$ES,1 \
-      poke:$HR,00$(printf '%02X' $EXC) frames:3 mem:$SC,3 mem:$LI,1 frames:150 mem:$LV,1)
+      poke:$HR,00$(printf '%02X' $EXC) frames:120 mem:$SC,3 frames:150 mem:$SC,3 mem:$LI,1 mem:$LV,1)
 check "a geode (score $(echo "$out" | bytes $SC 1)), the last: the exit grows (state $(echo "$out" | byte $ES))" \
       "[ $(echo "$out" | bytes $SC 1) = 000250 ] && [ $(echo "$out" | byte $GL) -eq 0 ] && [ $(echo "$out" | byte $ES) -eq 2 ]"
-check "out at the top: score $(echo "$out" | bytes $SC 2), lives $(echo "$out" | byte $LI), level $(echo "$out" | byte $LV)" \
-      "[ $(echo "$out" | bytes $SC 2) = 001750 ] && [ $(echo "$out" | byte $LI) -eq 4 ] && [ $(echo "$out" | byte $LV) -eq 2 ]"
+mid=$(echo "$out" | bytes $SC 2); tens=0; case $mid in *0) tens=1 ;; esac
+check "out at the top: the bonus counts up by tens (score $mid partway)" \
+      "[ $mid -gt 250 ] && [ $mid -lt 1750 ] && [ $tens -eq 1 ]"
+check "the count done: score $(echo "$out" | bytes $SC 3), lives $(echo "$out" | byte $LI), level $(echo "$out" | byte $LV)" \
+      "[ $(echo "$out" | bytes $SC 3) = 001750 ] && [ $(echo "$out" | byte $LI) -eq 4 ] && [ $(echo "$out" | byte $LV) -eq 2 ]"
 
 # 10b. The level bonus is only for climbing out: every geode collected and
 #      then dying before the exit gives none (the level starts over).
