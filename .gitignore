@@ -3,3 +3,8 @@ build/
 .claude/
 .mcp.json
 __pycache__/
+.bash_profile
+.bashrc
+.gitconfig
+.idea
+.profile
