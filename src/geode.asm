@@ -9,7 +9,8 @@
 ; exit ladder grow, and climbing off the top finishes the level (1500 and
 ; a life).  Three lives, one more for each level finished.  The guards
 ; (guards.inc) chase him, fall into his holes (75), get buried (75) and
-; come back at the top.  Debug builds: N shows the next level.
+; come back at the top.  BREAK gives up the level (a life lost, the level
+; as it started).  Debug builds: N shows the next level.
 
 #define GFX_MODE GFX_CG6
 #define GFX_BG CG_BLUE
@@ -45,7 +46,8 @@ G_TT            equ     15              ; ... frames left trapped,
 G_CARRY         equ     16              ; ... carrying a geode,
 G_CT            equ     17              ; ... frames left carrying it (2)
 G_OUT           equ     19              ; ... just climbed out of a hole
-GD_SIZE         equ     20
+G_ACC           equ     20              ; ... pixels owed in the move
+GD_SIZE         equ     22              ; (even: copied two bytes at a time)
 SH_MARGIN       equ     12              ; shadow rows above and below a patch,
 SH_ROWS         equ     36              ; for actors partly outside it
 
@@ -94,6 +96,7 @@ dc_t            rmb     2               ; ... its tile's bytes,
 dc_s            rmb     2               ; ... its place on the screen
 key_was         rmb     1
 started         rmb     1               ; the hero has moved: the guards go
+brk_was         rmb     1               ; BREAK was down last frame
 joy_force       rmb     1               ; debug builds: nonzero = held keys (tests)
 dbg_safe        rmb     1               ; ... nonzero: guards can't catch him (tests)
 dbg_loops       rmb     1               ; ... main loop passes (vs frame_count)
@@ -133,6 +136,9 @@ gd_wb           rmb     1
 gd_fr           rmb     2
 gd_m            rmb     2
 gd_rp           rmb     2
+gd_n            rmb     1
+gu_walk         rmb     1               ; this level's guard speeds
+gu_climb        rmb     1
 seed            rmb     2
 h_dig           rmb     1               ; hero.inc: frames left digging
 h_dead          rmb     1               ; ... nonzero: a hole filled on him
@@ -204,6 +210,7 @@ new_level:
 nl_f2:
                 jsr     lv_actors
                 jsr     lv_scan
+                jsr     guards_speed
                 jsr     holes_init
                 jsr     gfx_cls
                 jsr     lv_draw
@@ -246,7 +253,20 @@ lp_g2:
                 jsr     caught          ; a guard got him
                 beq     lp_f0
                 inc     h_dead
-lp_f0:          tst     h_dead          ; (or a hole filled on him)
+lp_f0:          ldaa    #$FF-$04        ; BREAK (column 2, row 6: port 2's
+                staa    P1DAT           ; bit 1): give up the level, a life
+                ldaa    P2DAT           ; lost, everything as it started
+                ldab    #$FF
+                stab    P1DAT
+                coma
+                anda    #$02
+                tab
+                eora    brk_was         ; (on the press)
+                stab    brk_was
+                anda    brk_was
+                beq     lp_f00
+                inc     h_dead
+lp_f00:          tst     h_dead          ; (or a hole filled on him)
                 bne     died
                 ldaa    ex_state        ; out at the top: the level is done
                 cmpa    #2
@@ -268,10 +288,11 @@ lp_f1:
                 eora    key_was         ; (on the press)
                 stab    key_was
                 anda    key_was
-                beq     loop
-                bra     next_level
+                bne     lp_n1
+                jmp     loop
+lp_n1:          bra     next_level
                 else
-                bra     loop
+                jmp     loop
                 endif
 
 level_done:

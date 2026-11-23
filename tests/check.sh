@@ -77,12 +77,18 @@ out=$(run poke:$JF,04 frames:2 poke:$JF,08 frames:2 poke:$JF,00 frames:500 mem:$
 check "caught by the guard: lives $(echo "$out" | byte $LI)" "[ $(echo "$out" | byte $LI) -eq 2 ]"
 
 # 8. Trapped in a hole (75), buried when it fills (75 more), back at the
-#    top; the memory past the buffers untouched, the screen right.
-out=$(run mem:$LOWEND,$LOWLEN poke:$JF,04 frames:2 poke:$JF,08 frames:2 poke:$JF,00 frames:36 poke:$JF,14 frames:1 poke:$JF,00 frames:330 mem:$G0ST,1 mem:$SC,3 frames:200 mem:$SC,3 mem:$G0R,1 mem:$LOWEND,$LOWLEN $STATE)
+#    top; the memory past the buffers untouched, the screen right.  (The
+#    guard's state and the score are sampled every 5 frames: the timing
+#    follows the guards' speed.)
+samples=""; for i in $(seq 1 120); do samples="$samples frames:5 mem:$G0ST,1 mem:$SC,3"; done
+out=$(run mem:$LOWEND,$LOWLEN poke:$JF,04 frames:2 poke:$JF,08 frames:2 poke:$JF,00 frames:36 poke:$JF,14 frames:1 poke:$JF,00 $samples mem:$G0R,1 mem:$LOWEND,$LOWLEN $STATE)
 echo "$out" > $D/s8
+trapped=$(echo "$out" | grep "^mem $G0ST" | awk '$3=="01"' | wc -l)
+s75=$(echo "$out" | grep "^mem $SC" | cut -d: -f2 | tr -d ' ' | grep -c '^000075$')
+last=$(echo "$out" | grep "^mem $SC" | tail -1 | cut -d: -f2 | tr -d ' ')
 m1=$(echo "$out" | bytes $LOWEND 1 | md5sum); m2=$(echo "$out" | bytes $LOWEND 2 | md5sum)
-check "trapped ($(echo "$out" | byte $G0ST), score $(echo "$out" | bytes $SC 1)), buried (score $(echo "$out" | bytes $SC 2)), back at the top (row $(echo "$out" | byte $G0R))" \
-      "[ $(echo "$out" | byte $G0ST) -eq 1 ] && [ $(echo "$out" | bytes $SC 1) = 000075 ] && [ $(echo "$out" | bytes $SC 2) = 000150 ] && [ $(echo "$out" | byte $G0R) -lt 14 ]"
+check "trapped (seen $trapped times, score 000075 $s75 times), buried (score $last), back up (row $(echo "$out" | byte $G0R))" \
+      "[ $trapped -gt 0 ] && [ $s75 -gt 0 ] && [ $last = 000150 ] && [ $(echo "$out" | byte $G0R) -lt 14 ]"
 check "the memory past the buffers untouched by the burial" "[ \"$m1\" = \"$m2\" ]"
 r=$(integrity $D/s8)
 check "after a burial and respawn: $r" "[ \"$r\" = 'tmap_bad=0 screen_bad=0' ]"
@@ -110,14 +116,25 @@ check "game over: a new game (lives $(echo "$out" | byte $LI), level $(echo "$ou
 
 # 12. Speed: on levels with four guards chasing, the game loop keeps up with
 #     the frames (measured after the level is drawn).
-for L in 24 60 123; do
+for L in 60 100 150; do
     out=$(run poke:$DS,01 poke:$LV,$(printf '%02X' $L) poke:$HD,01 frames:130 mem:$DL,1 frames:200 mem:$DL,1 mem:$NGUARD,1)
     l1=$(echo "$out" | byte $DL 1); l2=$(echo "$out" | byte $DL 2)
     loops=$(( (l2 - l1 + 256) % 256 ))
     check "speed, level $L ($(echo "$out" | byte $NGUARD) guards): $loops game loops in 200 frames" "[ $loops -ge 196 ]"
 done
 
-# 13. The release build assembles (no debug hooks).
+# 13. BREAK gives up the level: a life lost, the level as it started (the
+#     geode collected is back).
+out=$(run mem:$GL,1 poke:$(cell 13 29),05 poke:$JF,04 frames:9 poke:$JF,00 frames:4 mem:$GL,1 break:3 frames:200 mem:$GL,1 mem:$LI,1 mem:$(cell 13 29),1)
+check "BREAK: geodes $(echo "$out" | byte $GL 1) -> $(echo "$out" | byte $GL 2) -> $(echo "$out" | byte $GL 3), lives $(echo "$out" | byte $LI)" \
+      "[ $(echo "$out" | byte $GL 3) -eq $(echo "$out" | byte $GL 1) ] && [ $(echo "$out" | byte $LI) -eq 2 ] && [ $(echo "$out" | byte $(cell 13 29)) -eq 0 ]"
+
+# 14. The guards are slower on the first levels, faster later.
+GW=$(sym gu_walk)
+w1=$(run mem:$GW,1 | byte $GW); w2=$(run poke:$LV,96 poke:$HD,01 frames:150 mem:$GW,1 | byte $GW)
+check "guard speed: $w1 frames a cell on level 1, $w2 on level 150" "[ $w1 -gt $w2 ]"
+
+# 15. The release build assembles (no debug hooks).
 make --no-print-directory -s DEBUG=0 build/geode.bin > $D/rel.log 2>&1; st=$?
 check "the release build (DEBUG=0) assembles" "[ $st -eq 0 ]"
 make --no-print-directory -s -B build/geode.bin > /dev/null 2>&1      # (back to the debug build)

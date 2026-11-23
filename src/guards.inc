@@ -22,8 +22,14 @@
 ; The scratch copy: the guard being worked on is copied to gs (GD_SIZE
 ; bytes) and back, so the routines here can use X freely.
 
-G_WALK          equ     10              ; frames to walk a cell (the hero: 8)
-G_CLIMB         equ     12              ; ... climb one (a row a frame)
+; frames to walk a cell, by level (the hero: 8): slow at first; climbing
+; takes 2 more (gu_walk, gu_climb, set by guards_speed)
+GSPEED_T:       fcb     10, 14          ; up to level 10: 14 frames
+                fcb     30, 13
+                fcb     60, 12
+                fcb     100, 11
+                fcb     255, 10
+G_WALK          equ     14              ; (the slowest: for the poses' halves)
 G_FALL          equ     12              ; ... fall one
 TRAP_T          equ     210             ; frames stuck in a hole before climbing out
 CARRY_T         equ     600             ; frames a geode is carried at most
@@ -45,6 +51,7 @@ gs_tt           equ     gs+G_TT
 gs_carry        equ     gs+G_CARRY
 gs_ct           equ     gs+G_CT
 gs_climbed      equ     gs+G_OUT
+gs_acc          equ     gs+G_ACC
 
 ; guards_update: every guard, once a frame
 guards_update:
@@ -113,8 +120,9 @@ guard_update:
                 inc     gs_climbed      ; (then a step off to the side)
                 ldaa    #D_UP
                 staa    gs_dir
-                ldaa    #G_CLIMB
+                ldaa    gu_climb
                 staa    gs_t
+                clr     gs_acc
 gd_r0:          rts
 gd_trapmore:    ldaa    #10
                 staa    gs_tt
@@ -128,36 +136,66 @@ gd_f0:          tst     gs_carry        ; carrying: count down
 gd_f00:         tst     gs_t
                 bne     gd_step
                 jmp     gd_decide
-gd_step:        ldab    gs_t            ; a step of the move
-                ldaa    gs_dir
+; a step of the move: the move's distance (4 pixels across, 12 rows down)
+; spread evenly over its frames (an accumulator: a pixel whenever it
+; passes the move's frame count)
+gd_step:        ldaa    gs_dir
                 beq     gd_snext        ; (standing: just waiting)
                 cmpa    #D_LEFT
-                bne     gd_s1
-                ldx     #gwalktab
-                abx
-                ldaa    gs_x
-                suba    0,x
-                staa    gs_x
-                bra     gd_snext
-gd_s1:          cmpa    #D_RIGHT
-                bne     gd_s2
-                ldx     #gwalktab
-                abx
-                ldaa    gs_x
-                adda    0,x
-                staa    gs_x
-                bra     gd_snext
-gd_s2:          cmpa    #D_UP
+                beq     gd_sh
+                cmpa    #D_RIGHT
+                beq     gd_sh
+                ldab    #G_FALL         ; up, down, falling: 12 rows
+                cmpa    #D_FALL
+                beq     gd_sv
+                ldab    gu_climb
+gd_sv:          stab    gd_n
+                ldaa    gs_acc
+                adda    #12
+                cmpa    gd_n
+                bcs     gd_sk
+                suba    gd_n
+                staa    gs_acc
+                ldaa    gs_dir
+                cmpa    #D_UP
                 bne     gd_s3
                 dec     gs_y
                 bra     gd_snext
-gd_s3:          inc     gs_y            ; down or falling: a row a frame
+gd_s3:          inc     gs_y
+                bra     gd_snext
+gd_sh:          ldaa    gs_acc          ; across: 4 pixels
+                adda    #4
+                cmpa    gu_walk
+                bcs     gd_sk
+                suba    gu_walk
+                staa    gs_acc
+                ldaa    gs_dir
+                cmpa    #D_LEFT
+                bne     gd_s1
+                dec     gs_x
+                bra     gd_snext
+gd_s1:          inc     gs_x
+                bra     gd_snext
+gd_sk:          staa    gs_acc
 gd_snext:       dec     gs_t
                 bne     gd_r1
                 jmp     gd_decide       ; there: decide at once
 gd_r1:          rts
 
-gwalktab:       fcb     0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0 ; by frames left: 4 pixels
+; guards_speed: this level's guard speeds
+guards_speed:
+                ldx     #GSPEED_T
+gsp_b1:         ldaa    level
+                cmpa    0,x
+                bls     gsp_f1
+                inx
+                inx
+                bra     gsp_b1
+gsp_f1:         ldaa    1,x
+                staa    gu_walk
+                adda    #2
+                staa    gu_climb
+                rts
 
 ; gd_decide: the guard is on a cell (gs_r, gs_c): his next move
 gd_decide:
@@ -316,8 +354,9 @@ gd_tl:          ldaa    gs_r            ; left
                 staa    gs_face
                 ldaa    #D_LEFT
 gd_walk:        staa    gs_dir
-                ldaa    #G_WALK
+                ldaa    gu_walk
                 staa    gs_t
+                clr     gs_acc
                 rts
 gd_stand:       clr     gs_dir          ; nothing to do: think again in a
                 ldaa    #6              ; few frames
@@ -329,8 +368,9 @@ gd_up:          dec     gs_r
 gd_down:        inc     gs_r
                 ldaa    #D_DOWN
 gd_climb:       staa    gs_dir
-                ldaa    #G_CLIMB
+                ldaa    gu_climb
                 staa    gs_t
+                clr     gs_acc
                 rts
 gd_fall:        ldaa    gs_r            ; (onto another guard: wait)
                 inca
@@ -342,6 +382,7 @@ gd_fall:        ldaa    gs_r            ; (onto another guard: wait)
                 staa    gs_dir
                 ldaa    #G_FALL
                 staa    gs_t
+                clr     gs_acc
                 rts
 
 ; trapped in a hole: stop; any geode he carries goes into the cell above
@@ -616,8 +657,9 @@ guard_pose:
                 cmpa    #D_FALL
                 beq     gp_set
                 clrb                    ; pose 0 in the first half of a move
-                ldaa    gs_t
-                cmpa    #G_WALK/2
+                ldaa    gs_t            ; (the first half of the move)
+                lsla
+                cmpa    gu_walk
                 bhi     gp_f1
                 ldab    #2
 gp_f1:          tst     gs_t
