@@ -79,6 +79,12 @@ def integrity(dump, amap, atmap, ahero, aguards, angu, gdsize):
                     continue
                 if mem[0x4000 + y * 32 + c] != tiles[t][k]:
                     screen_bad += 1
+                    if screen_bad <= 8:     # (where, for the record)
+                        sys.stderr.write('  wrong: row %d col %d line %d: %02X, not %02X\n'
+                                         % (r, c, y, mem[0x4000 + y * 32 + c], tiles[t][k]))
+    if screen_bad:
+        sys.stderr.write('  actors (x, y, drawn x, drawn y): %s\n'
+                         % [(mem[a], mem[a + 1], mem[a + 2], mem[a + 3]) for a in recs])
     print('tmap_bad=%d screen_bad=%d' % (tmap_bad, screen_bad))
 
 

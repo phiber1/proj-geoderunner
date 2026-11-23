@@ -77,18 +77,21 @@ out=$(run poke:$JF,04 frames:2 poke:$JF,08 frames:2 poke:$JF,00 frames:500 mem:$
 check "caught by the guard: lives $(echo "$out" | byte $LI)" "[ $(echo "$out" | byte $LI) -eq 2 ]"
 
 # 8. Trapped in a hole (75), buried when it fills (75 more), back at the
-#    top; the memory past the buffers untouched, the screen right.  (The
-#    guard's state and the score are sampled every 5 frames: the timing
-#    follows the guards' speed.)
-samples=""; for i in $(seq 1 120); do samples="$samples frames:5 mem:$G0ST,1 mem:$SC,3"; done
-out=$(run mem:$LOWEND,$LOWLEN poke:$JF,04 frames:2 poke:$JF,08 frames:2 poke:$JF,00 frames:36 poke:$JF,14 frames:1 poke:$JF,00 $samples mem:$G0R,1 mem:$LOWEND,$LOWLEN $STATE)
+#    top; the memory past the buffers untouched, the screen right.  The
+#    scene is set up by hand (not left to the level's layout): the hero
+#    digs left, and late in the hole's life the guard is put on the cell
+#    above it (13, 29), so he falls in and the hole fills on him.  (State
+#    and score are sampled every 5 frames.)
+samples=""; for i in $(seq 1 60); do samples="$samples frames:5 mem:$G0ST,1 mem:$SC,3"; done
+out=$(run mem:$LOWEND,$LOWLEN poke:$DS,01 poke:$JF,14 frames:1 poke:$JF,00 frames:200 \
+      poke:$GUARDS,74A8 poke:$G0R,0D1D0000000000 $samples mem:$G0R,1 mem:$LOWEND,$LOWLEN $STATE)
 echo "$out" > $D/s8
 trapped=$(echo "$out" | grep "^mem $G0ST" | awk '$3=="01"' | wc -l)
 s75=$(echo "$out" | grep "^mem $SC" | cut -d: -f2 | tr -d ' ' | grep -c '^000075$')
 last=$(echo "$out" | grep "^mem $SC" | tail -1 | cut -d: -f2 | tr -d ' ')
 m1=$(echo "$out" | bytes $LOWEND 1 | md5sum); m2=$(echo "$out" | bytes $LOWEND 2 | md5sum)
 check "trapped (seen $trapped times, score 000075 $s75 times), buried (score $last), back up (row $(echo "$out" | byte $G0R))" \
-      "[ $trapped -gt 0 ] && [ $s75 -gt 0 ] && [ $last = 000150 ] && [ $(echo "$out" | byte $G0R) -lt 14 ]"
+      "[ $trapped -gt 0 ] && [ $s75 -gt 0 ] && [ $last = 000150 ] && [ $(echo "$out" | byte $G0R) -lt 13 ]"
 check "the memory past the buffers untouched by the burial" "[ \"$m1\" = \"$m2\" ]"
 r=$(integrity $D/s8)
 check "after a burial and respawn: $r" "[ \"$r\" = 'tmap_bad=0 screen_bad=0' ]"

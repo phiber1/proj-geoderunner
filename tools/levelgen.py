@@ -522,6 +522,29 @@ def style_for(n):
 
 # ---------------------------------------------------------------- a level
 
+def gap(a, b):
+    """how far apart two cells are, for spreading geodes (a floor apart
+    counts as three cells across)"""
+    return abs(a[1] - b[1]) + 3 * abs(a[0] - b[0])
+
+
+def spread(rnd, pool, k, placed, start):
+    """placed + k cells from pool, each as far as it can be from the ones
+    before it and the start: picked at random among the farthest few"""
+    out = list(placed)
+    pool = [p for p in pool if p not in out]
+    for _ in range(k):
+        if not pool:
+            break
+        far = [(min(gap(p, q) for q in out + [start]), p) for p in pool]
+        best = max(d for d, p in far)
+        top = [p for d, p in far if d >= best - 2]
+        p = rnd.choice(top)
+        out.append(p)
+        pool.remove(p)
+    return out
+
+
 def place(g, rnd, P, start):
     """the exit, the geodes, the guards: (score, level) or None if poor"""
     out, both = two_way(g, start)
@@ -534,7 +557,10 @@ def place(g, rnd, P, start):
     k = min(P['dig_geodes'], len(needdig))
     if len(easy) < P['geodes'] - k:
         return None
-    geodes = rnd.sample(needdig, k) + rnd.sample(easy, P['geodes'] - k)
+    # spread out: the ones that need digging first, then the rest, each
+    # far from those placed (and from the hero's start)
+    geodes = spread(rnd, needdig, k, [], start)
+    geodes = spread(rnd, easy, P['geodes'] - k, geodes, start)
     # the exit: a column climbing from a two-way cell to the top, one cell in
     # from the far left or the far right (so the hero climbs it centered),
     # never in the middle
