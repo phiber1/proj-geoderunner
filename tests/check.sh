@@ -67,6 +67,17 @@ check "digging: $(echo "$out" | bytes $(cell 14 29) 1) (digging), $(echo "$out" 
 r=$(integrity $D/s5)
 check "after a hole dug and filled: $r" "[ \"$r\" = 'tmap_bad=0 screen_bad=0' ]"
 
+# 5b. A quick SPACE tap in the middle of a step isn't lost: it digs at
+#     the next cell (left, the way he walked).
+out=$(run poke:$JF,04 frames:3 poke:$JF,10 frames:1 poke:$JF,00 frames:12 mem:$HR,2 mem:$(cell 14 28),1)
+check "a SPACE tap mid-step digs on arrival (at $(echo "$out" | bytes $HR 1): cell $(echo "$out" | bytes $(cell 14 28) 1))" \
+      "[ $(echo "$out" | bytes $HR 1) = 0D1D ] && echo \" 09 0A \" | grep -q \" $(echo "$out" | bytes $(cell 14 28) 1) \""
+
+# 5c. No digging under a geode (as under a ladder).
+out=$(run poke:$(cell 13 29),05 poke:$JF,14 frames:1 poke:$JF,00 frames:20 mem:$(cell 14 29),1 mem:$(cell 13 29),1)
+check "no dig under a geode (brick $(echo "$out" | bytes $(cell 14 29) 1), geode $(echo "$out" | bytes $(cell 13 29) 1))" \
+      "[ $(echo "$out" | bytes $(cell 14 29) 1) = 01 ] && [ $(echo "$out" | bytes $(cell 13 29) 1) = 05 ]"
+
 # 6. A hole filling on the hero kills him: a life less, the level again.
 out=$(run poke:$JF,14 frames:1 poke:$JF,00 frames:16 poke:$JF,04 frames:6 poke:$JF,00 poke:$DS,01 frames:450 mem:$LI,1 mem:$HR,2)
 check "a hole filling on him: lives $(echo "$out" | byte $LI), back at the start ($(echo "$out" | bytes $HR))" \

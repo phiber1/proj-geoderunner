@@ -13,6 +13,7 @@
 H_WALK          equ     8               ; frames to walk a cell (1 pixel / 2)
 H_CLIMB         equ     10              ; ... to climb one (climbtab)
 H_FALL          equ     12              ; ... to fall one (a row a frame)
+DIG_LATCH       equ     12              ; frames a SPACE tap is remembered
 LAND_LEAD       equ     4               ; frames before touchdown the thud starts
                                         ; (sound reaches the ear a few frames late)
 
@@ -81,11 +82,24 @@ hero_init:
                 clr     h_face
                 clr     h_on
                 clr     h_dig
+                clr     h_dlat
                 clr     h_dead
                 jmp     hero_pose
 
 ; hero_update: once a frame
 hero_update:
+                ldab    joy             ; SPACE is remembered for a moment, so
+                bitb    #J_FIRE         ; a quick tap mid-move still digs at
+                beq     hu_l1           ; the next cell
+                andb    #J_LEFT|J_RIGHT
+                stab    h_ddir
+                ldaa    #DIG_LATCH
+                staa    h_dlat
+                bra     hu_l2
+hu_l1:          tst     h_dlat
+                beq     hu_l2
+                dec     h_dlat
+hu_l2:
                 tst     h_dig           ; digging: he stands and digs
                 beq     hu_f0
                 dec     h_dig
@@ -208,11 +222,15 @@ hu_held:        tst     h_fall          ; landed?
                 ldx     #fx_land
                 ldaa    #2
                 jsr     snd_play
-hu_keys:        ldab    joy             ; SPACE: dig, left or right (or
-                bitb    #J_FIRE         ; the way he faces)
-                beq     hu_k1
+hu_keys:        tst     h_dlat          ; SPACE (now or just now): dig, left
+                beq     hu_k1           ; or right (or the way he faces)
                 tst     h_on            ; (standing on a floor)
-                bne     hu_k1
+                bne     hu_nd1
+                ldab    joy             ; (A/S now, else with the press)
+                andb    #J_LEFT|J_RIGHT
+                bne     hu_k0
+                ldab    h_ddir
+hu_k0:
                 ldaa    #-1
                 bitb    #J_LEFT
                 bne     hu_dig
@@ -232,26 +250,29 @@ hu_dg1:         stab    h_face
                 addb    hu_dc
                 ldaa    h_r
                 jsr     cell_at
-                cmpa    #C_AIR
-                beq     hu_dg2
-                cmpa    #C_GEODE
-                bne     hu_r0
-hu_dg2:         ldab    h_c             ; ... and brick below that?
+                cmpa    #C_AIR          ; (not under a geode or a ladder)
+                bne     hu_nodig
+                ldab    h_c             ; ... and brick below that?
                 addb    hu_dc
                 ldaa    h_r
                 inca
                 jsr     cell_at
                 cmpa    #C_BRICK
-                bne     hu_r0
+                bne     hu_nodig
                 ldab    h_c
                 addb    hu_dc
                 ldaa    h_r
                 inca
                 jsr     hole_start
-                bcs     hu_r0
+                bcs     hu_nodig
                 ldaa    #DIG_T
                 staa    h_dig
+                clr     h_dlat          ; (the press used)
 hu_r0:          rts
+hu_nodig:       ldab    joy             ; no dig there: SPACE held, he stands
+                bitb    #J_FIRE         ; (as ever); only remembered, it's
+                bne     hu_r0           ; forgotten and he moves on
+hu_nd1:         clr     h_dlat
 hu_k1:          ldab    joy
                 bitb    #J_UP           ; UP: up a ladder
                 beq     hu_k2

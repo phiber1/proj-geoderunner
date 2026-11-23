@@ -22,7 +22,7 @@ LV_FILE         equ     1               ; the file number LEVELS.DAT uses
 NLEVELS         equ     150
 LD_FANFARE      equ     40              ; level done: frames for the fanfare,
 LD_STEPS        equ     150             ; ... the bonus count-up's steps (of 10),
-LD_BOP          equ     3               ; ... frames between its bops,
+LD_BOP          equ     4               ; ... frames between its bops,
 LD_AFTER        equ     45              ; ... frames before the next level
 LV_COLS         equ     32
 LV_ROWS         equ     15
@@ -146,6 +146,8 @@ gu_walk         rmb     1               ; this level's guard speeds
 gu_climb        rmb     1
 seed            rmb     2
 h_dig           rmb     1               ; hero.inc: frames left digging
+h_dlat          rmb     1               ; ... a SPACE press remembered: frames left,
+h_ddir          rmb     1               ; ... and A/S held with it
 h_head          rmb     1               ; ... standing on a guard's head
 h_dead          rmb     1               ; ... nonzero: a hole filled on him
 hu_dc           rmb     1               ; ... the side he digs (-1, 1)
@@ -325,7 +327,16 @@ lb_b1:          jsr     frame_wait
                 jsr     snd_play
 lb_f1:          ldd     #$0010
                 jsr     score_add
+                ldaa    score+2         ; (a carry: all six digits, else
+                bne     lb_f2           ; just the last two: in a frame)
                 jsr     status_score
+                bra     lb_f3
+lb_f2:          ldaa    #COLOR_BYTE(CG_YELLOW)
+                staa    txt_col
+                ldx     #TXT_AT(1,10)
+                ldaa    score+2
+                jsr     sp_byte
+lb_f3:
                 dec     ld_n
                 bne     lb_b1
                 ldaa    lives           ; and a life (9 at most)
@@ -829,8 +840,8 @@ fx_gem:         fcb     3, SND_TONE     ; a geode: bling
 fx_exit:        fcb     40, SND_TONE    ; the exit ladder grows: a rising sweep
                 fdb     N_C4, -20
                 fcb     0
-fx_bop:         fcb     2, SND_TONE     ; the bonus counting up: bop
-                fdb     N_G5, 40
+fx_bop:         fcb     1, SND_TONE     ; the bonus counting up: a soft bop
+                fdb     N_C4, 0
                 fcb     0
 fx_clear:       fcb     6, SND_TONE     ; out: a little fanfare
                 fdb     N_C5, 0
