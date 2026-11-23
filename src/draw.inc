@@ -75,10 +75,14 @@ tp_jmp:         jmp     tile_put        ; (patched)
 ; draw_cell: A = row, B = column: draw that cell on the screen (and note
 ; its tile in tmap, for act_update)
 draw_cell:
-                jsr     cell_tile       ; (leaves dc_r, dc_c, dc_m)
+                jsr     cell_tile       ; (leaves dc_r, dc_c)
                 staa    dc_tl
-                ldd     dc_m            ; tmap: the same place as in lv_map
-                addd    #tmap-lv_map
+                ldaa    dc_r            ; tmap + row * 32 + column (not dc_m:
+                ldab    #LV_COLS        ; cell_tile may leave it on the cell
+                mul                     ; above)
+                addb    dc_c
+                adca    #0
+                addd    #tmap
                 std     dc_m
                 ldx     dc_m
                 ldaa    dc_tl

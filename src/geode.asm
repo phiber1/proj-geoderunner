@@ -93,6 +93,7 @@ dc_m            rmb     2               ; ... its map byte,
 dc_t            rmb     2               ; ... its tile's bytes,
 dc_s            rmb     2               ; ... its place on the screen
 key_was         rmb     1
+started         rmb     1               ; the hero has moved: the guards go
 joy_force       rmb     1               ; debug builds: nonzero = held keys (tests)
 dbg_safe        rmb     1               ; ... nonzero: guards can't catch him (tests)
 dbg_loops       rmb     1               ; ... main loop passes (vs frame_count)
@@ -204,6 +205,7 @@ nl_f2:
                 jsr     status_draw
                 jsr     hero_init
                 jsr     actors_draw
+                clr     started         ; (the guards wait for his first move)
 loop:
                 jsr     frame_wait
                 if      DEBUG
@@ -223,7 +225,15 @@ dbg_f1:
                 jsr     hero_pose
                 ldx     #hero_a
                 jsr     act_update
-                jsr     guards_update
+                tst     started         ; the guards: once he's moved
+                bne     lp_g1
+                tst     h_t
+                bne     lp_g0
+                tst     h_dig
+                beq     lp_g2
+lp_g0:          inc     started
+lp_g1:          jsr     guards_update
+lp_g2:
                 if      DEBUG
                 tst     dbg_safe
                 bne     lp_f0
