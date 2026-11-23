@@ -165,6 +165,7 @@ ln_r:           rts
 hu_decide:
                 clr     h_dir
                 clr     h_on
+                clr     h_head
                 ldaa    h_r             ; what's here, and under him
                 ldab    h_c
                 jsr     cell_at
@@ -188,12 +189,14 @@ hu_g1:          staa    hu_here
                 beq     hu_held
                 jsr     is_solid
                 beq     hu_held
-                ldaa    h_r             ; ... or a trapped guard's head
+                ldaa    h_r             ; ... or a guard's head (trapped or not)
                 inca
                 ldab    h_c
-                jsr     trapped_in
-                beq     hu_held
-                jmp     hu_dofall       ; no: he falls
+                jsr     head_in
+                bne     hu_nohead
+                inc     h_head          ; (on a head: pressing down is death)
+                bra     hu_held
+hu_nohead:      jmp     hu_dofall       ; no: he falls
                 bra     hu_held
 hu_ladder:      ldaa    #1              ; (h_on: 1 on a ladder, 2 on a cable)
                 bra     hu_on
@@ -268,6 +271,11 @@ hu_k1:          ldab    joy
 hu_k2:          ldab    joy             ; DOWN: down a ladder, or let go
                 bitb    #J_DOWN
                 beq     hu_k3
+                tst     h_head          ; (onto the guard under him: caught)
+                beq     hu_k20
+                inc     h_dead
+                rts
+hu_k20:
                 ldaa    hu_below
                 cmpa    #C_LADDER
                 beq     hu_down

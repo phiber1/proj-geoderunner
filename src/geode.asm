@@ -141,6 +141,7 @@ gu_walk         rmb     1               ; this level's guard speeds
 gu_climb        rmb     1
 seed            rmb     2
 h_dig           rmb     1               ; hero.inc: frames left digging
+h_head          rmb     1               ; ... standing on a guard's head
 h_dead          rmb     1               ; ... nonzero: a hole filled on him
 hu_dc           rmb     1               ; ... the side he digs (-1, 1)
 holes           rmb     HOLES*O_SIZE    ; holes.inc

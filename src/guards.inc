@@ -622,6 +622,30 @@ gi_next:        pshb
 gi_none:        clra
                 rts
 
+; head_in: A = row, B = column: Z set if a guard is there (on that cell,
+; or moving to it): one the hero can stand on
+head_in:
+                std     gd_fr
+                ldx     #guards
+                ldab    nguard
+                beq     hdi_no
+hdi_b1:         ldaa    G_R,x
+                cmpa    gd_fr
+                bne     hdi_next
+                ldaa    G_C,x
+                cmpa    gd_fr+1
+                bne     hdi_next
+                clra                    ; (Z)
+                rts
+hdi_next:       pshb
+                ldab    #GD_SIZE
+                abx
+                pulb
+                decb
+                bne     hdi_b1
+hdi_no:         ldaa    #1
+                rts
+
 ; trapped_in: A = row, B = column: Z set if a trapped guard is there
 trapped_in:
                 std     gd_fr

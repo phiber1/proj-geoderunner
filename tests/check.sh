@@ -159,7 +159,16 @@ p1=$(echo "$out" | bytes $GSPR 1); p2=$(echo "$out" | bytes $GSPR 2)
 check "a guard on a cable hangs from it (poses $p1, $p2: guard_h0 $HH0, guard_h1 $HH1)" \
       "{ [ $p1 = $HH0 ] || [ $p1 = $HH1 ]; } && { [ $p2 = $HH0 ] || [ $p2 = $HH1 ]; }"
 
-# 17. The release build assembles (no debug hooks).
+# 17. The hero can stand on a guard's head (a guard at (13, 20), the hero
+#     put just above him), walk off unharmed, and dies pressing down.
+HEAD="poke:$GUARDS,50A8 poke:$G0R,0D140000000000 poke:$HERO,509C poke:$HR,0C14"
+out=$(run $HEAD frames:40 mem:$HR,2 mem:$LI,1 poke:$JF,08 frames:40 poke:$JF,00 frames:30 mem:$HR,2 mem:$LI,1)
+check "on a guard's head: stands ($(echo "$out" | bytes $HR 1)), walks off and down ($(echo "$out" | bytes $HR 2)), unharmed (lives $(echo "$out" | byte $LI 2))" \
+      "[ $(echo "$out" | bytes $HR 1) = 0C14 ] && [ $(echo "$out" | byte $LI 1) -eq 3 ] && [ $(echo "$out" | bytes $HR 2 | cut -c1-2) = 0D ] && [ $(echo "$out" | byte $LI 2) -eq 3 ]"
+out=$(run $HEAD frames:40 poke:$JF,02 frames:4 poke:$JF,00 frames:150 mem:$LI,1)
+check "pressing down on a guard's head: caught (lives $(echo "$out" | byte $LI))" "[ $(echo "$out" | byte $LI) -eq 2 ]"
+
+# 18. The release build assembles (no debug hooks).
 make --no-print-directory -s DEBUG=0 build/geode.bin > $D/rel.log 2>&1; st=$?
 check "the release build (DEBUG=0) assembles" "[ $st -eq 0 ]"
 make --no-print-directory -s -B build/geode.bin > /dev/null 2>&1      # (back to the debug build)
