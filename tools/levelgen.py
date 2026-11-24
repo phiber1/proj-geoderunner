@@ -743,6 +743,8 @@ def candidate(n, seed):
     got = place(g, rnd, P, start, room=20 if style == 'word' else 40, vaults=vaults)
     if not got:
         return None
+    if fairness(got[1] if isinstance(got[1][0], str) else [''.join(row) for row in got[1]]):
+        return None
     nv, nd = got[2]
     if nv:
         style += ', %d vault%s' % (nv, 's' if nv > 1 else '') + (' (%d double)' % nd if nd else '')
@@ -815,6 +817,57 @@ def write_dat(out, count):
         f.write(head + b''.join(recs))
 
 
+# ---------------------------------------------------------------- fairness
+
+# The owner can't play all 150 levels to prove each fair, so the
+# generator rejects layouts like the ones he found impossible: a level
+# whose start, or a geode, lies down a long stretch of floor that can't
+# be dug (stone, or ladders over it: nowhere to trap a guard following
+# him) before any way off that floor.
+FAIR_START = 6      # the start: at most this much undiggable floor on the way to a ladder up
+FAIR_GEODE = 9      # a geode: ... on the way to any way off its floor (up, down, a drop)
+
+
+def _run_out(g, p, ways):
+    """from p along its row, each way, to the nearest cell where ways(r, x)
+    is true: the longest stretch of floor that can't be dug, walked over to
+    get there; the better way's (99: no way out either way)"""
+    r, c = p
+    best = 99
+    for d in (-1, 1):
+        x, run, worst = c, 0, 0
+        while 0 <= x < COLS and at(g, r, x) not in SOLID:
+            if ways(r, x):
+                best = min(best, worst)
+                break
+            run = run + 1 if at(g, r + 1, x) != 'B' else 0
+            worst = max(worst, run)
+            x += d
+    return best
+
+
+def fairness(lv):
+    """level lv as the game loads it: [] if fair, else what isn't"""
+    g = [list(r.replace('T', '.').replace('E', '.').replace('P', '.').replace('X', '.')) for r in lv]
+    cells = [(r, c) for r in range(ROWS) for c in range(COLS)]
+    start = [p for p in cells if lv[p[0]][p[1]] == 'P'][0]
+
+    def up(r, x):
+        return at(g, r, x) == 'H' and at(g, r - 1, x) not in SOLID
+
+    def off(r, x):
+        return up(r, x) or at(g, r + 1, x) == 'H' or at(g, r + 1, x) not in SOLID
+
+    wrong = []
+    if _run_out(g, start, up) > FAIR_START:
+        wrong.append('start cornered')
+    walk = reach(g, start, dig=False)
+    for p in cells:
+        if lv[p[0]][p[1]] == 'T' and p in walk and _run_out(g, p, off) > FAIR_GEODE:
+            wrong.append('geode %d,%d cornered' % p)       # (not a vault's: those aren't walked to)
+    return wrong
+
+
 def playable(lv):
     """level lv as the game loads it (geodes, guards, start: air; the exit
     hidden): [] if every geode can be reached and left and the exit, once
@@ -832,7 +885,7 @@ def playable(lv):
         g[y][c] = 'X'
     if (0, c) not in reach(g, start):
         wrong.append('exit')
-    return wrong
+    return wrong + fairness(lv)
 
 
 def verify_dat(path):
