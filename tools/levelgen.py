@@ -51,6 +51,24 @@ CODES = '.BSH-TPEX'                 # a cell's code in the level file: its index
 HEADER, RECORD = 16, 240
 
 
+def vaults(n, t):
+    """how many vaults level n has: now and then, never knowing when (about
+    a level in three, more later; two at once now and then after 60)"""
+    if n < 4:
+        return 0
+    r = Rng(n * 101 + 3).random()
+    p = 0.3 + 0.2 * t
+    return 0 if r >= p else 2 if n > 60 and r < p * 0.25 else 1
+
+
+def doubles(n, t):
+    """how many of level n's vaults need a double dig (from level 15, about
+    half of them, more later)"""
+    if n < 15:
+        return 0
+    return sum(Rng(n * 103 + 7 * i + 1).random() < 0.5 + 0.3 * t for i in range(vaults(n, t)))
+
+
 def params(n):
     """difficulty for level n (1 = easiest)"""
     t = min(1.0, (n - 1) / 120)             # ramps up over the first 120 of 150
@@ -62,8 +80,8 @@ def params(n):
         cables=0.0 if n < 3 else 0.25 + 0.35 * t,        # chance a gap gets a cable
         double=0.0 if n < 8 else 0.15 + 0.35 * t,        # chance of two-deep brick
         geodes=6 + int(6 * t),
-        dig_geodes=0 if n < 4 else 1 + int(3 * t),       # geodes in vaults (dug into)
-        doubles=0 if n < 15 else 1 + int(2 * t),         # ... of them needing a double dig
+        dig_geodes=vaults(n, t),                         # geodes in vaults (dug into)
+        doubles=doubles(n, t),                           # ... of them needing a double dig
         guards=1 if n < 3 else 2 if n < 21 else 3 if n < 41 else 4,  # (4 at most: the MC-10 keeps up)
         bottom=0.0 if n < 60 else min(1.0, (n - 60) / 60),  # stone in the bottom floor
     )
@@ -494,7 +512,7 @@ def bottom_floor(g, rnd, P):
 
 
 def add_vaults(g, rnd, P):
-    """vaults: sealed rooms under a floor, a geode inside, dug into from
+    """vaults: sealed brick boxes under a floor, a geode inside, dug into from
     above (through one brick, or for a double, two: dig two holes side by
     side, drop into one, dig under the other) and dug out of through the
     brick floor, dropping to the open space below.  Each roof lies in a
@@ -520,7 +538,7 @@ def add_vaults(g, rnd, P):
                 while F < ROWS - 2 and g[F][a] in '.H-':
                     F += 1
                 box = {(y, x) for y in range(R - 1, F + 2) for x in range(a - 4, a + w + 4)}
-                if (F - lo >= 1 and F + 1 < ROWS - 1 and not box & used
+                if (1 <= F - lo <= 2 and F + 1 < ROWS - 1 and not box & used
                         and all(g[R][x] in 'BHS' and g[R - 1][x] in '.H' for x in range(a - 2, a + w + 2))
                         and all(g[R + 1][x] in ('.H-B' if double else '.H-') for x in range(a - 1, a + w + 1))
                         and all(g[y][x] in '.H-' for y in range(lo, F) for x in range(a - 1, a + w + 1))
@@ -536,8 +554,8 @@ def add_vaults(g, rnd, P):
                     g[y][x] = '.'
         for x in range(a, a + w):
             g[F][x] = 'B'
-        for y in range(R + 1, F):
-            g[y][a - 1] = g[y][a + w] = 'S'
+        for y in range(R + 1, F):           # brick all round: a box
+            g[y][a - 1] = g[y][a + w] = 'B'
         if double:
             for x in range(a, a + w):
                 g[R + 1][x] = 'B'

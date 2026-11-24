@@ -32,11 +32,11 @@ carry).  The first levels are gentle; new styles join every ten levels: floors,
 staggered ledges, rooms walled with stone, a brick pyramid with hidden
 chambers, caverns dug out of solid rock, mirror images, and every 10th
 level a message spelled out in ladders.  Geodes are only placed where the
-hero can both reach and leave, so every level can be finished.  From
-level 4 some geodes sit in sealed vaults: dig through the roof to get in
-(from level 15 some roofs are two bricks deep: dig two holes side by
-side, drop into one and dig under the other), then dig out through the
-floor.
+hero can both reach and leave, so every level can be finished.  Now and
+then, from level 4, a geode sits in a sealed brick vault: dig through
+the roof to get in (from level 15 some roofs are two bricks deep: dig two
+holes side by side, drop into one and dig under the other), then dig out
+through the floor.
 
 There are 150 levels, and finishing the last one earns a proper
 congratulation.  `make levels` writes them to `build/LEVELS.DAT` (36 KB,
