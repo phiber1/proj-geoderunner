@@ -104,6 +104,20 @@ out=$(run poke:$DS,01 poke:$HR,0711 poke:$HERO,4460 frames:4 mem:$HON,1 poke:$JF
 check "a ladder through a floor: stands (on $(echo "$out" | bytes $HON 1)), digs beside ($(echo "$out" | bytes $(cell 8 18) 1)), up past it ($(echo "$out" | bytes $HR 1)), down past it ($(echo "$out" | bytes $HR 2))" \
       "[ $(echo "$out" | bytes $HON 1) = 00 ] && [ $(echo "$out" | bytes $(cell 8 18) 1) = 09 ] && [ $(echo "$out" | bytes $HR 1) = 0411 ] && [ $(echo "$out" | bytes $HR 2) = 0A11 ]"
 
+# 5h. A double dig into a vault (built here under floor 8, columns 2-4: a
+#     second brick layer, stone walls, a geode inside): dig the far hole,
+#     then the near one, drop in, dig under the far one, drop through into
+#     the vault, take the geode, dig out through its floor, land below.
+VAULT="poke:$(cell 9 1),02010101 poke:$(cell 9 5),02 poke:$(cell 10 1),02 poke:$(cell 10 5),02 poke:$(cell 10 4),05"
+out=$(run poke:$DS,01 $VAULT poke:$HR,0702 poke:$HERO,0860 frames:4 mem:$GL,1 \
+      poke:$JF,18 frames:1 poke:$JF,00 frames:14 poke:$JF,04 frames:2 poke:$JF,00 frames:10 \
+      poke:$JF,18 frames:1 poke:$JF,00 frames:14 poke:$JF,08 frames:2 poke:$JF,00 frames:24 \
+      poke:$JF,18 frames:1 poke:$JF,00 frames:14 poke:$JF,08 frames:2 poke:$JF,00 frames:40 mem:$HR,2 \
+      poke:$JF,08 frames:2 poke:$JF,00 frames:12 mem:$GL,1 \
+      poke:$JF,14 frames:1 poke:$JF,00 frames:14 poke:$JF,04 frames:2 poke:$JF,00 frames:60 mem:$HR,2 mem:$LI,1)
+check "a double dig into a vault (in at $(echo "$out" | bytes $HR 1), geodes $(echo "$out" | byte $GL 1) -> $(echo "$out" | byte $GL 2), out at $(echo "$out" | bytes $HR 2), lives $(echo "$out" | byte $LI))" \
+      "[ $(echo "$out" | bytes $HR 1) = 0A03 ] && [ $(echo "$out" | byte $GL 2) -eq $(( $(echo "$out" | byte $GL 1) - 1 )) ] && [ $(echo "$out" | bytes $HR 2) = 0D03 ] && [ $(echo "$out" | byte $LI) -eq 3 ]"
+
 # 6. A hole filling on the hero kills him: a life less, the level again.
 out=$(run poke:$JF,14 frames:1 poke:$JF,00 frames:16 poke:$JF,04 frames:6 poke:$JF,00 poke:$DS,01 frames:450 mem:$LI,1 mem:$HR,2)
 check "a hole filling on him: lives $(echo "$out" | byte $LI), back at the start ($(echo "$out" | bytes $HR))" \

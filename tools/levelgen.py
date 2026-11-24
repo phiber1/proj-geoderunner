@@ -20,7 +20,8 @@ shapes, then the generator works out where the hero can go (walking,
 climbing, hanging, falling, and digging down through one or two layers of
 brick) and where he can get back from, and adds ladders until nearly all
 of the level is both.  Geodes go only where he can get to and back from,
-so they can be collected in any order; the exit ladder climbs to the top
+so they can be collected in any order (those in vaults by digging in and
+out, checked the same way); the exit ladder climbs to the top
 from such a place, one column in from either edge.  Several
 candidates are made and the most interesting kept.
 
@@ -61,7 +62,8 @@ def params(n):
         cables=0.0 if n < 3 else 0.25 + 0.35 * t,        # chance a gap gets a cable
         double=0.0 if n < 8 else 0.15 + 0.35 * t,        # chance of two-deep brick
         geodes=6 + int(6 * t),
-        dig_geodes=0 if n < 4 else 1 + int(3 * t),       # geodes only digging reaches
+        dig_geodes=0 if n < 4 else 1 + int(3 * t),       # geodes in vaults (dug into)
+        doubles=0 if n < 15 else 1 + int(2 * t),         # ... of them needing a double dig
         guards=1 if n < 3 else 2 if n < 21 else 3 if n < 41 else 4,  # (4 at most: the MC-10 keeps up)
         bottom=0.0 if n < 60 else min(1.0, (n - 60) / 60),  # stone in the bottom floor
     )
@@ -122,8 +124,9 @@ def supported(g, r, c):
     return here in 'HX-' or below in SOLID + 'HX'
 
 
-def moves(g, r, c, dig=True):
-    """the cells the hero can get to from (r, c) in one move"""
+def moves(g, r, c, dig=True, double=True):
+    """the cells the hero can get to from (r, c) in one move (digging: down
+    through one brick, and with double, two)"""
     here = at(g, r, c)
     if not supported(g, r, c):
         out = [(r + 1, c)]                  # falling
@@ -142,26 +145,26 @@ def moves(g, r, c, dig=True):
                 side, under = at(g, r, c + dc), at(g, r + 1, c + dc)
                 # dig the brick below-left/right, step over, drop through it
                 if side not in SOLID + 'HX-' and under == 'B' and at(g, r + 2, c + dc) not in SOLID:
-                    out.append((r + 1, c + dc))
+                    out.append((r + 2, c + dc))
                 # two bricks deep: dig two side by side, drop into the near
                 # one, dig the brick under the far one, drop through it
                 far = c + 2 * dc
-                if (side not in SOLID + 'HX-' and at(g, r, far) not in SOLID + 'HX-'
+                if (double and side not in SOLID + 'HX-' and at(g, r, far) not in SOLID + 'HX-'
                         and under == 'B' and at(g, r + 1, far) == 'B'
                         and at(g, r + 2, far) == 'B' and at(g, r + 3, far) not in SOLID
                         and at(g, r + 2, c + dc) in SOLID):
-                    out.append((r + 2, far))
+                    out.append((r + 3, far))
     return [q for q in out if 0 <= q[0] < ROWS and at(g, *q) not in SOLID]
 
 
-def graph(g, dig=True):
+def graph(g, dig=True, double=True):
     """every open cell's moves, and the reverse"""
     fwd, back = {}, {}
     for r in range(ROWS):
         for c in range(COLS):
             if g[r][c] in SOLID:
                 continue
-            fwd[(r, c)] = moves(g, r, c, dig)
+            fwd[(r, c)] = moves(g, r, c, dig, double)
             for q in fwd[(r, c)]:
                 back.setdefault(q, []).append((r, c))
     return fwd, back
@@ -178,13 +181,14 @@ def bfs(edges, start):
     return seen
 
 
-def reach(g, start, dig=True):
-    return bfs(graph(g, dig)[0], start)
+def reach(g, start, dig=True, double=True):
+    return bfs(graph(g, dig, double)[0], start)
 
 
-def two_way(g, start):
-    """(cells the hero can reach from start, cells he can also get back from)"""
-    fwd, back = graph(g)
+def two_way(g, start, dig=False):
+    """(cells the hero can reach from start, cells he can also get back from)
+    (the layout is made walkable without digging; only vaults need it)"""
+    fwd, back = graph(g, dig)
     out = bfs(fwd, start)
     return out, out & bfs(back, start)
 
@@ -215,12 +219,13 @@ def beside(g, c, r0, r1, keep=()):
             or any((y, c) in keep for y in range(r0, r1 + 1)))
 
 
-def repair(g, rnd, start, tries=40, keep=(), slack=20):
-    """add ladders until nearly every standing cell (all but 1/slack) is
-    two-way reachable from start; False if it can't"""
+def repair(g, rnd, start, tries=40, keep=(), slack=20, skip=()):
+    """add ladders until nearly every standing cell (all but 1/slack; not
+    counting those in skip, the vaults) is two-way reachable from start;
+    False if it can't"""
     for _ in range(tries):
         out, both = two_way(g, start)
-        stands = stand_cells(g)
+        stands = [p for p in stand_cells(g) if p not in skip]
         bad = [p for p in stands if p not in both]
         if len(bad) <= len(stands) // slack:
             return True
@@ -488,6 +493,67 @@ def bottom_floor(g, rnd, P):
         c += w
 
 
+def add_vaults(g, rnd, P):
+    """vaults: sealed rooms under a floor, a geode inside, dug into from
+    above (through one brick, or for a double, two: dig two holes side by
+    side, drop into one, dig under the other) and dug out of through the
+    brick floor, dropping to the open space below.  Each roof lies in a
+    long run of brick, room to trap the guards before breaking in.
+    [(the geode's cell, the entrance cell, double?)]"""
+    vaults, used = [], set()
+    want = P['dig_geodes']
+    if not want:
+        return vaults
+    w = 3                                   # the room's width
+    for i in range(want):
+        double = i < P['doubles']
+        fits = []
+        for R in range(2, 11):              # the roof row (a floor)
+            for a in range(4, COLS - w - 3):
+                # (ladders where it goes are cut: the repair afterwards
+                # adds others, around it)
+                # (ladders and stone where it goes give way: the repair
+                # afterwards adds ladders around it; a double may use a
+                # floor already two deep)
+                lo = R + 2 if double else R + 1     # the room's rows: lo .. F-1
+                F = lo                      # the room's floor: the next floor down
+                while F < ROWS - 2 and g[F][a] in '.H-':
+                    F += 1
+                box = {(y, x) for y in range(R - 1, F + 2) for x in range(a - 4, a + w + 4)}
+                if (F - lo >= 1 and F + 1 < ROWS - 1 and not box & used
+                        and all(g[R][x] in 'BHS' and g[R - 1][x] in '.H' for x in range(a - 2, a + w + 2))
+                        and all(g[R + 1][x] in ('.H-B' if double else '.H-') for x in range(a - 1, a + w + 1))
+                        and all(g[y][x] in '.H-' for y in range(lo, F) for x in range(a - 1, a + w + 1))
+                        and all(g[F][x] in 'BHS' and g[F + 1][x] == '.' for x in range(a, a + w))):
+                    fits.append((R, a, F, box))
+        if not fits:
+            break
+        R, a, F, box = rnd.choice(fits)
+        for x in range(a - 2, a + w + 2):
+            g[R][x] = 'B'
+            for y in range(R + 1, F):
+                if a - 1 <= x <= a + w:
+                    g[y][x] = '.'
+        for x in range(a, a + w):
+            g[F][x] = 'B'
+        for y in range(R + 1, F):
+            g[y][a - 1] = g[y][a + w] = 'S'
+        if double:
+            for x in range(a, a + w):
+                g[R + 1][x] = 'B'
+        used |= box
+        vaults.append(((F - 1, a + rnd.randint(0, w - 1)), (R - 1, a + 1), double,
+                       {(y, x) for y in range(R, F + 1) for x in range(a - 1, a + w + 1)}))
+    return vaults
+
+
+def vault_ok(g, start, v, both, nodig, single):
+    """a vault's geode: reached and left only by digging (a double's only
+    by a double dig)"""
+    cell, entry, double, cells = v
+    return cell in both and cell not in nodig and (not double or cell not in single)
+
+
 def mirror(g):
     for r in range(ROWS):
         for x in range(COLS // 2):
@@ -544,23 +610,30 @@ def spread(rnd, pool, k, placed, start):
     return out
 
 
-def place(g, rnd, P, start, room=40):
-    """the exit, the geodes, the guards: (score, level) or None if poor
-    (fewer than `room` places to stand)"""
+def place(g, rnd, P, start, room=40, vaults=()):
+    """the exit, the geodes, the guards: (score, level, (vaults, doubles))
+    or None if poor (fewer than `room` places to stand)"""
     out, both = two_way(g, start)
     stand = [p for p in stand_cells(g, tops=room < 40) if p in both and p != start]
     if len(stand) < room:
         return None
     nodig = reach(g, start, dig=False)
-    needdig = [p for p in stand if p not in nodig]
+    if vaults:
+        dug = two_way(g, start, dig=True)[1]
+        single = reach(g, start, double=False) if any(v[2] for v in vaults) else set()
+        vaults = [v for v in vaults if vault_ok(g, start, v, dug, nodig, single)]
+    inside = set().union(*(v[3] for v in vaults)) if vaults else set()
+    needdig = [p for p in stand if p not in nodig and p not in inside]
     easy = [p for p in stand if p in nodig]
-    k = min(P['dig_geodes'], len(needdig))
-    if len(easy) < P['geodes'] - k:
+    k = min(max(0, P['dig_geodes'] - len(vaults)), len(needdig))
+    if len(easy) < P['geodes'] - k - len(vaults):
         return None
-    # spread out: the ones that need digging first, then the rest, each
-    # far from those placed (and from the hero's start)
-    geodes = spread(rnd, needdig, k, [], start)
-    geodes = spread(rnd, easy, P['geodes'] - k, geodes, start)
+    # a geode in each vault; the rest spread out: the ones that need digging
+    # first, then the others, each far from those placed (and from the
+    # hero's start)
+    geodes = [v[0] for v in vaults]
+    geodes = spread(rnd, needdig, k, geodes, start)
+    geodes = spread(rnd, easy, P['geodes'] - len(geodes), geodes, start)
     # the exit: a column climbing from a two-way cell to the top, one cell in
     # from the far left or the far right (so the hero climbs it centered),
     # never in the middle
@@ -578,13 +651,15 @@ def place(g, rnd, P, start, room=40):
             opened = [row[:] for row in g]
             for y in range(0, r + 1):
                 opened[y][c] = 'X'
-            if (0, c) in reach(opened, start):
+            if (0, c) in reach(opened, start, dig=False):
                 exit_at = (r, c)
                 break
     if not exit_at:
         return None
-    far = [p for p in stand if abs(p[1] - start[1]) + 3 * abs(p[0] - start[0]) > 12
-           and p not in geodes]
+    # guards: far from the hero, never in a dug-into place, and well away
+    # from a vault's entrance (time to trap them before breaking in)
+    far = [p for p in easy if abs(p[1] - start[1]) + 3 * abs(p[0] - start[0]) > 12
+           and p not in geodes and all(gap(p, v[1]) > 14 for v in vaults)]
     rnd.shuffle(far)
     guards = []
     for p in far:
@@ -604,8 +679,8 @@ def place(g, rnd, P, start, room=40):
     for y in range(0, r + 1):
         if lv[y][c] == '.':
             lv[y][c] = 'X'
-    score = len(stand) + 3 * len(needdig) + rnd.random()    # interest
-    return score, lv
+    score = len(stand) + 3 * len(needdig) + 60 * len(vaults) + rnd.random()    # interest
+    return score, lv, (len(vaults), sum(1 for v in vaults if v[2]))
 
 
 def candidate(n, seed):
@@ -623,27 +698,38 @@ def candidate(n, seed):
         add_cables(g, rnd, P)
         add_double(g, rnd, P)
     bottom_floor(g, rnd, P)
+    vaults = add_vaults(g, rnd, P) if style != 'word' else []
+    if vaults:                      # (no ladders through them)
+        keep = set().union(*(v[3] for v in vaults))
     starts = [(13, c) for c in range(COLS) if standing(g, (13, c))]
     if not starts:
         return None
     start = rnd.choice(starts)
     # (a word level may keep some letter floors out of reach: its geodes
     # still go only where the hero can get to and back from)
-    if not repair(g, rnd, start, keep=keep, slack=4 if keep else 20) and not keep:
+    if not repair(g, rnd, start, keep=keep, slack=4 if style == 'word' else 20,
+                  skip=keep if vaults else ()) and style != 'word':
         return None
-    got = place(g, rnd, P, start, room=20 if keep else 40)   # (a word: mostly ladders)
-    return got and (got[0], got[1], style)
+    got = place(g, rnd, P, start, room=20 if style == 'word' else 40, vaults=vaults)
+    if not got:
+        return None
+    nv, nd = got[2]
+    if nv:
+        style += ', %d vault%s' % (nv, 's' if nv > 1 else '') + (' (%d double)' % nd if nd else '')
+    return got[0], got[1], style, nv
 
 
 def level(n, want=4):
     """level n: (15 strings of 32 cells, its style), the best of a few
     candidates"""
     best = None
+    vaults = params(n)['dig_geodes'] if style_for(n) != 'word' else 0
     for attempt in range(80):
         got = candidate(n, n * 7919 + attempt * 104729)
         if got and (best is None or got[0] > best[0]):
             best = got
-        if best and attempt >= want:
+        # (a few candidates, more until one has all the vaults wanted)
+        if best and attempt >= want and (best[3] >= vaults or attempt >= 30):
             break
     if not best:
         raise RuntimeError('no level %d' % n)
@@ -666,8 +752,8 @@ def sheet(out, numbers):
         x, y = 12 + (i % cols) * (cw + 12), 12 + (i // cols) * (ch + 28)
         S.paste(im, (x, y))
         P = params(n)
-        d.text((x, y + ch + 6), "level %d (%s): %d geodes (%d by digging), %d guards"
-               % (n, style, P['geodes'], P['dig_geodes'], P['guards']), fill=(220, 220, 220))
+        d.text((x, y + ch + 6), "level %d (%s): %d geodes, %d guards"
+               % (n, style, P['geodes'], P['guards']), fill=(220, 220, 220))
     S.save(out)
 
 
