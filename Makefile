@@ -82,6 +82,7 @@ levels: build/LEVELS.DAT
 build/LEVELS.DAT: tools/levelgen.py | build
 	python3 tools/levelgen.py --dat $@ $(NLEVELS)
 	python3 tools/levelgen.py --check $@ 1 2 3 10 75 100 $(NLEVELS)
+	python3 tools/levelgen.py --verify $@
 
 # The sprite viewer (the engine's), in the sprite file's mode
 VIEW    ?= sprites/geode.spr

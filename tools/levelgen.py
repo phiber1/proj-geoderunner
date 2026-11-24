@@ -29,6 +29,7 @@ candidates are made and the most interesting kept.
     python3 tools/levelgen.py --sheet OUT.png N1 N2 ...   a contact sheet
     python3 tools/levelgen.py --dat OUT COUNT     levels 1..COUNT as a level file (the game: 150)
     python3 tools/levelgen.py --check FILE N...   compare a level file with the generator
+    python3 tools/levelgen.py --verify FILE       every level in a level file playable
 
 The level file (LEVELS.DAT on the SD card): a 16-byte header, "GR", a
 format number (1), a reserved byte, the number of levels (2 bytes, high
@@ -657,7 +658,7 @@ def place(g, rnd, P, start, room=40, vaults=()):
     # never in the middle
     # (one starting from row 9 or higher if there is one, else from lower)
     edge = [p for p in sorted(both) if standing(g, p) and p not in geodes
-            and p[1] in (1, COLS - 2)]
+            and p != start and p[1] in (1, COLS - 2)]
     high = [p for p in edge if p[0] <= 9]
     low = [p for p in edge if p[0] > 9]
     rnd.shuffle(high)
@@ -677,7 +678,8 @@ def place(g, rnd, P, start, room=40, vaults=()):
     # guards: far from the hero, never in a dug-into place, and well away
     # from a vault's entrance (time to trap them before breaking in)
     far = [p for p in easy if abs(p[1] - start[1]) + 3 * abs(p[0] - start[0]) > 12
-           and p not in geodes and all(gap(p, v[1]) > 14 for v in vaults)]
+           and p not in geodes and all(gap(p, v[1]) > 14 for v in vaults)
+           and not (p[1] == exit_at[1] and p[0] <= exit_at[0])]    # (not on the exit)
     rnd.shuffle(far)
     guards = []
     for p in far:
@@ -725,7 +727,8 @@ def candidate(n, seed):
     start = rnd.choice(starts)
     # (a word level may keep some letter floors out of reach: its geodes
     # still go only where the hero can get to and back from)
-    if not repair(g, rnd, start, keep=keep, slack=4 if style == 'word' else 20,
+    # (no ladder through the start cell: the hero's mark would cut it)
+    if not repair(g, rnd, start, keep=set(keep) | {start}, slack=4 if style == 'word' else 20,
                   skip=keep if vaults else ()) and style != 'word':
         return None
     got = place(g, rnd, P, start, room=20 if style == 'word' else 40, vaults=vaults)
@@ -798,6 +801,40 @@ def write_dat(out, count):
         f.write(head + b''.join(recs))
 
 
+def playable(lv):
+    """level lv as the game loads it (geodes, guards, start: air; the exit
+    hidden): [] if every geode can be reached and left and the exit, once
+    grown, climbed; else what's wrong"""
+    g = [list(r.replace('T', '.').replace('E', '.').replace('P', '.').replace('X', '.')) for r in lv]
+    cells = [(r, c) for r in range(ROWS) for c in range(COLS)]
+    start = [p for p in cells if lv[p[0]][p[1]] == 'P'][0]
+    both = two_way(g, start, dig=True)[1]
+    wrong = ['geode %d,%d' % p for p in cells if lv[p[0]][p[1]] == 'T' and p not in both]
+    xs = [p for p in cells if lv[p[0]][p[1]] == 'X']
+    if not xs:
+        return wrong + ['no exit']
+    c = xs[0][1]
+    for y in range(max(r for (r, x) in xs if x == c) + 1):  # (it grows through anything)
+        g[y][c] = 'X'
+    if (0, c) not in reach(g, start):
+        wrong.append('exit')
+    return wrong
+
+
+def verify_dat(path):
+    """every level in a level file playable as the game loads it: the count
+    of those that aren't"""
+    data = open(path, 'rb').read()
+    count = int.from_bytes(data[4:6], 'big')
+    bad = 0
+    for n in range(1, count + 1):
+        wrong = playable(decode(data[HEADER + RECORD * (n - 1):HEADER + RECORD * n]))
+        if wrong:
+            print('level', n, 'not playable:', ', '.join(wrong))
+            bad += 1
+    return bad
+
+
 def check_dat(path, numbers):
     data = open(path, 'rb').read()
     assert data[:3] == b'GR\x01', 'not a level file'
@@ -818,6 +855,8 @@ if __name__ == '__main__':
         write_dat(sys.argv[2], int(sys.argv[3]))
     elif sys.argv[1] == '--check':
         sys.exit(1 if check_dat(sys.argv[2], [int(a) for a in sys.argv[3:]]) else 0)
+    elif sys.argv[1] == '--verify':
+        sys.exit(1 if verify_dat(sys.argv[2]) else 0)
     elif sys.argv[1] == '--sheet':
         sheet(sys.argv[2], [int(a) for a in sys.argv[3:]])
     else:

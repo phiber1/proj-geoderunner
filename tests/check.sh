@@ -36,6 +36,11 @@ STATE="mem:$MAP,480 mem:$TMAP,480 mem:4000,6144 mem:$HERO,8 mem:$GUARDS,$((GD * 
 integrity() { python3 tests/expect.py integrity $1 $MAP $TMAP $HERO $GUARDS $NGUARD $GD; }
 D=$(mktemp -d)
 
+# 0. Every level is playable as the game loads it: each geode can be
+#    reached and left (digging where needed), and the exit climbed.
+r=$(python3 tools/levelgen.py --verify build/LEVELS.DAT 2>&1); rc=$?
+check "every level in LEVELS.DAT playable as loaded${r:+: $r}" "[ $rc -eq 0 ]"
+
 # 1. Level 1 loads from LEVELS.DAT and is drawn: the tile map and every
 #    screen byte of the level (outside the actors) match the tile art.
 run $STATE > $D/s1
