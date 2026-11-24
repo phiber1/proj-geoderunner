@@ -197,7 +197,7 @@ for L in 60 100 150; do
     out=$(run poke:$DS,01 poke:$LV,$(printf '%02X' $L) poke:$HD,01 frames:130 mem:$DL,1 frames:200 mem:$DL,1 mem:$NGUARD,1)
     l1=$(echo "$out" | byte $DL 1); l2=$(echo "$out" | byte $DL 2)
     loops=$(( (l2 - l1 + 256) % 256 ))
-    check "speed, level $L ($(echo "$out" | byte $NGUARD) guards): $loops game loops in 200 frames" "[ $loops -ge 196 ]"
+    check "speed, level $L ($(echo "$out" | byte $NGUARD) guards): $loops game loops in 200 frames" "[ $loops -ge 199 ]"
 done
 
 # 12b. Test builds: N then three digits goes to that level (041: 41); a
@@ -205,6 +205,13 @@ done
 out=$(run 'type:N041' frames:120 mem:$LV,1 'type:N200' frames:60 mem:$LV,1)
 check "N with a level number: 041 -> $(echo "$out" | byte $LV 1), then 200 ignored ($(echo "$out" | byte $LV 2))" \
       "[ $(echo "$out" | byte $LV 1) -eq 41 ] && [ $(echo "$out" | byte $LV 2) -eq 41 ]"
+
+# 12a. Speed with four guards milling about, unable to reach the hero (on
+#      level 53 at row 4, column 16, where four guards thinking in the same
+#      frame used to miss frames): at most one frame missed in 240.
+out=$(run poke:$DS,01 'type:N053' frames:120 poke:$JF,04 frames:2 poke:$JF,00 poke:$HR,0410 poke:$HERO,403C frames:200 mem:$DL,1 frames:240 mem:$DL,1)
+l1=$(echo "$out" | byte $DL 1); l2=$(echo "$out" | byte $DL 2); loops=$(( (l2 - l1 + 256) % 256 ))
+check "speed, guards milling on level 53: $loops game loops in 240 frames" "[ $loops -ge 239 ]"
 
 # 13. BREAK gives up the level: a life lost, the level as it started (the
 #     geode collected is back).

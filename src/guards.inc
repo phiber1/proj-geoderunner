@@ -55,6 +55,10 @@ gs_acc          equ     gs+G_ACC
 
 ; guards_update: every guard, once a frame
 guards_update:
+                ldaa    #1              ; one guard may think a frame (thinking
+                staa    gu_think        ; is costly: four at once missed a
+                ldaa    frame_count     ; frame); this frame's half to redraw,
+                staa    gu_par          ; fixed even if the frame runs late
                 ldaa    nguard
                 beq     gup_r
                 staa    gu_n
@@ -66,7 +70,7 @@ gup_b1:         stx     gu_p
                 ldx     gu_p
                 jsr     gs_out
                 ldaa    gu_n            ; redraw him if he moved: each guard
-                eora    frame_count     ; every other frame, half of them on
+                eora    gu_par          ; every other frame, half of them on
                 lsra                    ; each (they move every frame)
                 bcs     gup_f1
                 ldx     gu_p
@@ -286,7 +290,11 @@ gd_held:        tst     gs_carry        ; carried long enough: put it down
                 jsr     gd_redraw
                 clr     gs_carry
 ; tracking the hero
-gd_think:       jsr     gd_hrow         ; (a falling hero: where he'll land)
+gd_think:       tst     gu_think        ; another thought this frame: wait
+                bne     gd_th1          ; a frame (still, at this cell)
+                rts
+gd_th1:         clr     gu_think
+                jsr     gd_hrow         ; (a falling hero: where he'll land)
                 cmpa    gs_r
                 beq     gd_level
                 bcc     gd_below_h

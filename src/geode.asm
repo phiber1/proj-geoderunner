@@ -128,6 +128,8 @@ ca_p            rmb     2
 guards          rmb     GD_SIZE*MAX_GUARDS ; the guards' records
 gs              rmb     GD_SIZE         ; guards.inc: the one being worked on
 gu_n            rmb     1
+gu_think        rmb     1               ; ... a guard may still think this frame,
+gu_par          rmb     1               ; ... frame_count when they began
 gu_p            rmb     2
 gu_q            rmb     2
 gu_q2           rmb     2
