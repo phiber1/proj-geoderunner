@@ -717,7 +717,9 @@ def candidate(n, seed):
             style += ', mirrored'
         add_cables(g, rnd, P)
         add_double(g, rnd, P)
-    bottom_floor(g, rnd, P)
+    # (a word level's bottom floor is all brick: somewhere to trap guards
+    # among the letters' ladders)
+    bottom_floor(g, rnd, dict(P, bottom=0) if style == 'word' else P)
     vaults = add_vaults(g, rnd, P) if style != 'word' else []
     if vaults:                      # (no ladders through them)
         keep = set().union(*(v[3] for v in vaults))
