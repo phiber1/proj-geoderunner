@@ -60,27 +60,59 @@ guards_update:
                 ldaa    frame_count     ; frame); this frame's half to redraw,
                 staa    gu_par          ; fixed even if the frame runs late
                 ldaa    nguard
-                beq     gup_r
-                staa    gu_n
+                bne     gup_f0
+                rts
+gup_f0:         staa    gu_n
                 ldx     #guards
 gup_b1:         stx     gu_p
-                jsr     gs_in
+                tst     G_OWE,x         ; a redraw put off last frame: now
+                bne     gup_d
+                ldaa    gu_n            ; each guard is redrawn every other
+                eora    gu_par          ; frame, half of them on each (they
+                lsra                    ; move every frame)
+                bcc     gup_d
+                ldaa    G_ST,x          ; not redrawn this frame, in the middle
+                cmpa    #GS_TRAP        ; of a move: just the step, in place
+                beq     gup_s           ; (no copying, no pose: most frames)
+                ldaa    G_T,x
+                cmpa    #2
+                bcs     gup_s
+                PROF    $10
+                jsr     gd_fast
+                PROF    $11
+                bra     gup_f1
+gup_s:          jsr     gs_in           ; not redrawn: the whole update
+                PROF    $10
                 jsr     guard_update
+                PROF    $11
+                ldx     gu_p
+                jsr     gs_out
+                bra     gup_f1
+gup_d:          jsr     gs_in           ; redrawn: the update, the pose, and
+                PROF    $10             ; drawn
+                jsr     guard_update
+                PROF    $11
                 jsr     guard_pose
                 ldx     gu_p
                 jsr     gs_out
-                ldaa    gu_n            ; redraw him if he moved: each guard
-                eora    gu_par          ; every other frame, half of them on
-                lsra                    ; each (they move every frame)
-                bcs     gup_f1
+                ldd     #FRAME_CYCLES-GU_DRAW_MAX  ; time to draw him?  Else
+                jsr     frame_left      ; next frame, first
                 ldx     gu_p
+                bcs     gup_owe
+                clr     G_OWE,x
+                PROF    $12
                 jsr     act_update
+                PROF    $13
+                bra     gup_f1
+gup_owe:        ldaa    #1
+                staa    G_OWE,x
 gup_f1:
                 ldx     gu_p
                 ldab    #GD_SIZE
                 abx
                 dec     gu_n
-                bne     gup_b1
+                beq     gup_r
+                jmp     gup_b1
 gup_r:          rts
 
 gs_in:                                  ; X = a guard: copy it to gs
@@ -186,6 +218,75 @@ gd_snext:       dec     gs_t
                 jmp     gd_decide       ; there: decide at once
 gd_r1:          rts
 
+; frame_left: D = how far into the frame's work (cycles) something may
+; start: carry set if it's later than that (the frame's work began at
+; fr_t0; the rest of it, after the guards, is GU_TAIL)
+GU_DRAW_MAX     equ     5000            ; (a guard's redraw, at most,
+GU_THINK_MAX    equ     4400            ; ... a guard's thinking,
+GU_TAIL         equ     900             ; ... the loop after the guards)
+frame_left:
+                subd    #GU_TAIL
+                std     fl_lim
+                ldd     FRC
+                subd    fr_t0
+                subd    fl_lim          ; elapsed - limit: a borrow, before it
+                bcs     fl_ok
+                sec
+                rts
+fl_ok:          clc
+                rts
+
+; gd_fast: X = a guard, free and two or more frames from the end of a
+; move: this frame of it, in his record (as guard_update and gd_step do
+; through gs, without the copying)
+gd_fast:
+                tst     G_CARRY,x       ; carrying: count down
+                beq     gf_s
+                ldd     G_CT,x
+                beq     gf_s
+                subd    #1
+                std     G_CT,x
+gf_s:           ldaa    G_DIR,x
+                beq     gf_n            ; (standing: just waiting)
+                cmpa    #D_LEFT
+                beq     gf_h
+                cmpa    #D_RIGHT
+                beq     gf_h
+                ldab    #G_FALL         ; up, down, falling: 12 rows
+                cmpa    #D_FALL
+                beq     gf_v1
+                ldab    gu_climb
+gf_v1:          stab    gd_n
+                ldaa    G_ACC,x
+                adda    #12
+                cmpa    gd_n
+                bcs     gf_k
+                suba    gd_n
+                staa    G_ACC,x
+                ldaa    G_DIR,x
+                cmpa    #D_UP
+                bne     gf_v2
+                dec     A_Y,x
+                bra     gf_n
+gf_v2:          inc     A_Y,x
+                bra     gf_n
+gf_h:           ldaa    G_ACC,x         ; across: 4 pixels
+                adda    #4
+                cmpa    gu_walk
+                bcs     gf_k
+                suba    gu_walk
+                staa    G_ACC,x
+                ldaa    G_DIR,x
+                cmpa    #D_LEFT
+                bne     gf_h2
+                dec     A_X,x
+                bra     gf_n
+gf_h2:          inc     A_X,x
+                bra     gf_n
+gf_k:           staa    G_ACC,x
+gf_n:           dec     G_T,x
+                rts
+
 ; guards_speed: this level's guard speeds
 guards_speed:
                 ldx     #GSPEED_T
@@ -290,9 +391,12 @@ gd_held:        tst     gs_carry        ; carried long enough: put it down
                 jsr     gd_redraw
                 clr     gs_carry
 ; tracking the hero
-gd_think:       tst     gu_think        ; another thought this frame: wait
-                bne     gd_th1          ; a frame (still, at this cell)
-                rts
+gd_think:       tst     gu_think        ; another thought this frame, or no
+                beq     gd_th0          ; time left for one: wait a frame
+                ldd     #FRAME_CYCLES-GU_THINK_MAX ; (still, at this cell)
+                jsr     frame_left
+                bcc     gd_th1
+gd_th0:         rts
 gd_th1:         clr     gu_think
                 jsr     gd_hrow         ; (a falling hero: where he'll land)
                 cmpa    gs_r
@@ -492,10 +596,10 @@ ghr_r:          rts
 ; between), ties going toward the hero; none: the hero's column
 gd_scan:
                 staa    gd_want
-                ldaa    gs_r            ; (his row's map bytes, for gd_way)
+                ldaa    gs_r            ; (his row in the way table, for gd_way)
                 ldab    #LV_COLS
                 mul
-                addd    #lv_map
+                addd    #waytab
                 std     gd_rp
                 ldaa    h_c
                 staa    gd_goal
@@ -555,81 +659,139 @@ gsc_f3:         ldaa    gd_lok
 ; wants (gd_want 1: a ladder going up there; 2: a way down there: ladder
 ; below, or no floor)
 gd_way:
-                stab    gd_wc
-                ldx     gd_rp           ; (straight from the map: quick)
+                ldx     gd_rp           ; (from the way table: quick)
                 abx
                 ldaa    0,x
-                cmpa    #C_EXIT         ; (the hidden exit: air)
-                bne     gw_f1
-                clra
-gw_f1:          jsr     is_solid
-                beq     gw_wall
-                staa    gd_wh
-                ldaa    #C_STONE        ; below (the bottom row: stone under it)
-                ldab    gs_r
-                cmpb    #LV_ROWS-1
-                beq     gw_f2
-                ldaa    LV_COLS,x
-                cmpa    #C_EXIT
-                bne     gw_f2
-                clra
-gw_f2:          staa    gd_wb
-                ldaa    gd_want
-                cmpa    #1
+                bita    #W_WALL
+                bne     gw_wall
+                ldab    gd_want
+                cmpb    #1
                 bne     gw_down
-                ldaa    gd_wh           ; up: a ladder here, air above it
-                cmpa    #C_LADDER
-                bne     gw_upf
-                ldaa    gs_r
-                deca
-                ldab    gd_wc
-                jsr     cell_at
-                jsr     is_solid
-                beq     gw_upf
-                clc
-                clra                    ; (Z)
-                rts
-gw_upf:         bsr     gw_floor        ; not here: can he walk on past it?
-                bcs     gw_r
-                clc
-                ldaa    #1              ; (NZ)
-gw_r:           rts
-gw_down:        ldaa    gd_wb           ; down: a ladder below, or no floor
-                cmpa    #C_LADDER
-                beq     gw_yes
-                ldaa    gd_wh
-                cmpa    #C_CABLE
-                beq     gw_cab
-                cmpa    #C_LADDER
-                beq     gw_no
-                ldaa    gd_wb
-                jsr     guard_solid
-                bne     gw_yes          ; (no floor: he'd drop: a way down)
+                bita    #W_UP           ; up: a ladder here, air above it
+                bne     gw_yes
+                bita    #W_FLOOR        ; not here: can he walk on past it?
+                beq     gw_wall
 gw_no:          clc
-                ldaa    #1
+                ldaa    #1              ; (NZ)
                 rts
-gw_cab:         ldaa    gd_wb           ; a cable over air: let go
-                jsr     guard_solid
+gw_down:        bita    #W_DOWN         ; down: a ladder below, or no floor
                 beq     gw_no
 gw_yes:         clc
-                clra
+                clra                    ; (Z)
                 rts
 gw_wall:        sec
                 rts
-gw_floor:                               ; walkable past: floor, ladder or cable
-                ldaa    gd_wh
-                cmpa    #C_LADDER
-                beq     gwf_ok
-                cmpa    #C_CABLE
-                beq     gwf_ok
-                ldaa    gd_wb
-                cmpa    #C_LADDER
-                beq     gwf_ok
-                jsr     guard_solid
-                beq     gwf_ok
-                sec
+
+; the way table (waytab: a byte a cell, kept by way_all and way_upd) for
+; the guards' scans along a floor: W_WALL solid; W_UP a ladder with air
+; above; W_FLOOR walkable past (floor, ladder or cable); W_DOWN a way
+; down (a ladder below, a cable or nothing over air)
+W_WALL          equ     1
+W_UP            equ     2
+W_FLOOR         equ     4
+W_DOWN          equ     8
+
+; way_all: the whole table (a level's start)
+way_all:
+                clr     wy_r
+wa_b1:          clr     wy_c
+wa_b2:          ldd     wy_r
+                bsr     way_cell
+                inc     wy_c
+                ldaa    wy_c
+                cmpa    #LV_COLS
+                bne     wa_b2
+                inc     wy_r
+                ldaa    wy_r
+                cmpa    #LV_ROWS
+                bne     wa_b1
                 rts
-gwf_ok:         clc
+
+; way_upd: A = row, B = column: that cell changed: it and the ones above
+; and below it again
+way_upd:
+                std     wy_r
+                tsta
+                beq     wu_f1
+                deca
+                bsr     way_cell
+wu_f1:          ldd     wy_r
+                bsr     way_cell
+                ldd     wy_r
+                inca
+                cmpa    #LV_ROWS
+                bcc     wu_r
+                bsr     way_cell
+wu_r:           rts
+
+; way_cell: A = row, B = column: its entry
+way_cell:
+                std     wy_rc
+                jsr     cell_at         ; here (the hidden exit: air)
+                staa    wy_h
+                ldaa    wy_rc           ; below (under the bottom row: stone)
+                ldab    #C_STONE
+                cmpa    #LV_ROWS-1
+                beq     wc_f1
+                inca
+                ldab    wy_rc+1
+                jsr     cell_at
+                tab
+wc_f1:          stab    wy_b
+                clr     wy_v
+                ldaa    wy_h
+                jsr     is_solid
+                bne     wc_f2
+                ldaa    #W_WALL
+                bra     wc_set
+wc_f2:          ldaa    wy_h            ; W_UP: a ladder, air above
+                cmpa    #C_LADDER
+                bne     wc_f3
+                ldaa    wy_rc
+                deca
+                ldab    wy_rc+1
+                jsr     cell_at
+                jsr     is_solid
+                beq     wc_f3
+                ldaa    #W_UP
+                staa    wy_v
+wc_f3:          ldaa    wy_h            ; W_FLOOR: a ladder or cable here, a
+                cmpa    #C_LADDER       ; ladder below, or floor below
+                beq     wc_fl
+                cmpa    #C_CABLE
+                beq     wc_fl
+                ldaa    wy_b
+                cmpa    #C_LADDER
+                beq     wc_fl
+                jsr     guard_solid
+                bne     wc_f4
+wc_fl:          ldaa    wy_v
+                oraa    #W_FLOOR
+                staa    wy_v
+wc_f4:          ldaa    wy_b            ; W_DOWN: a ladder below; else on a
+                cmpa    #C_LADDER       ; ladder no; else (a cable, or air)
+                beq     wc_dn           ; nothing holding him up below
+                ldaa    wy_h
+                cmpa    #C_LADDER
+                beq     wc_f5
+                ldaa    wy_b
+                jsr     guard_solid
+                beq     wc_f5
+wc_dn:          ldaa    wy_v
+                oraa    #W_DOWN
+                staa    wy_v
+wc_f5:          ldaa    wy_v
+wc_set:         psha
+                ldaa    wy_rc
+                ldab    #LV_COLS
+                mul
+                addb    wy_rc+1
+                adca    #0
+                addd    #waytab
+                std     wy_p
+                ldx     wy_p
+                pula
+                staa    0,x
                 rts
 
 ; guard_solid: A = a code: Z set if it holds a guard up: as is_solid, and

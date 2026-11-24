@@ -22,13 +22,14 @@ ENGINE  ?= engine
 VMC10   ?= $(HOME)/vmc10-linux
 EMU     ?= $(VMC10)/vmc10
 DEBUG   ?= 1
+PROFILE ?= 0
 CPPDEFS ?=
 CC      ?= cc
 CFLAGS  ?= -O2 -Wall -Wextra -std=c11
 
 LOAD     := 6000
 SEGMENTS := 0400-1FFF 6000-ADFF
-CPPFLAGS := -E -P -w -x assembler-with-cpp -I$(ENGINE)/engine -Ibuild -Isrc -DDEBUG=$(DEBUG)
+CPPFLAGS := -E -P -w -x assembler-with-cpp -I$(ENGINE)/engine -Ibuild -Isrc -DDEBUG=$(DEBUG) -DPROFILE=$(PROFILE)
 ENGSRC   := $(wildcard $(ENGINE)/engine/*.asm $(ENGINE)/engine/*.inc)
 SRCINC   := $(wildcard src/*.inc)
 SPRITES  := $(patsubst sprites/%.spr,build/%_spr.inc,$(wildcard sprites/*.spr))
@@ -57,7 +58,12 @@ build/%_spr.inc: sprites/%.spr build/spritec
 
 # cpp handles #include/#define, then ASL assembles; p2decb writes the DECB
 # binary, every byte checked to lie in the low or main segment
-build/%.s: src/%.asm $(ENGSRC) $(SPRITES) $(SRCINC) | build
+# (build/flags-DEBUG-PROFILE: a build with other flags assembles again)
+FLAGS := build/flags-$(DEBUG)-$(PROFILE)
+$(FLAGS): | build
+	rm -f build/flags-*
+	touch $@
+build/%.s: src/%.asm $(ENGSRC) $(SPRITES) $(SRCINC) $(FLAGS) | build
 	$(CC) $(CPPFLAGS) $(CPPDEFS) $< -o $@
 build/%.p: build/%.s
 	cd build && asl -q -L -U $*.s

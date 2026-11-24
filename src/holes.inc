@@ -163,6 +163,8 @@ ho_set:
                 pula
                 staa    0,x
                 ldd     ho_rc
+                jsr     way_upd
+                ldd     ho_rc
                 jsr     draw_cell
                 ldaa    ho_rc
                 beq     hs2_f1

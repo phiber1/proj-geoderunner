@@ -216,6 +216,12 @@ out=$(run poke:$DS,01 'type:N053' frames:120 poke:$JF,04 frames:2 poke:$JF,00 po
 l1=$(echo "$out" | byte $DL 1); l2=$(echo "$out" | byte $DL 2); loops=$(( (l2 - l1 + 256) % 256 ))
 check "speed, guards milling on level 53: $loops game loops in 240 frames" "[ $loops -ge 239 ]"
 
+# 12c. Speed with the hero walking back and forth and four guards chasing
+#      (level 100, hero redrawn most frames): no frame missed in 240.
+out=$(run poke:$DS,01 'type:N100' frames:120 poke:$JF,04 frames:60 mem:$DL,1 poke:$JF,08 frames:60 poke:$JF,04 frames:60 poke:$JF,08 frames:60 poke:$JF,04 frames:60 mem:$DL,1 mem:$NGUARD,1)
+l1=$(echo "$out" | byte $DL 1); l2=$(echo "$out" | byte $DL 2); loops=$(( (l2 - l1 + 256) % 256 ))
+check "speed, hero walking with $(echo "$out" | byte $NGUARD) guards on level 100: $loops game loops in 240 frames" "[ $loops -ge 240 ]"
+
 # 13. BREAK gives up the level: a life lost, the level as it started (the
 #     geode collected is back).
 out=$(run mem:$GL,1 poke:$(cell 13 29),05 poke:$JF,04 frames:9 poke:$JF,00 frames:4 mem:$GL,1 break:3 frames:200 mem:$GL,1 mem:$LI,1 mem:$(cell 13 29),1)

@@ -16,6 +16,15 @@
 #define GFX_BG CG_BLUE
 #include "layout.inc"
 
+; PROF n (make PROFILE=1): the value n to the emulator's debug port, a
+; timing mark (tools/profile.py reads them); uses A
+PROF            macro   n
+                if      PROFILE
+                ldaa    #n
+                staa    DBGPORT
+                endif
+                endm
+
 BIOS_SEEK       equ     8               ; MCX BIOS 'P': set the file position
                                         ; (32 bits: PB_BUF high, PB_LEN low)
 LV_FILE         equ     1               ; the file number LEVELS.DAT uses
@@ -30,6 +39,7 @@ LV_CELLS        equ     LV_COLS*LV_ROWS
 LV_RECORD       equ     LV_CELLS/2      ; bytes a level in the file
 LV_HEADER       equ     16
 MAX_GUARDS      equ     4
+D12_N           equ     208             ; draw.inc: div12's table (y + 11 < 208)
 
 ; actor records and the shadow buffer (draw.inc)
 A_X             equ     0               ; place
@@ -51,6 +61,7 @@ G_CARRY         equ     16              ; ... carrying a geode,
 G_CT            equ     17              ; ... frames left carrying it (2)
 G_OUT           equ     19              ; ... just climbed out of a hole
 G_ACC           equ     20              ; ... pixels owed in the move
+G_OWE           equ     21              ; ... a redraw put off (no time)
 GD_SIZE         equ     22              ; (even: copied two bytes at a time)
 SH_MARGIN       equ     12              ; shadow rows above and below a patch,
 SH_ROWS         equ     36              ; for actors partly outside it
@@ -79,10 +90,13 @@ C_FILL1         equ     11              ; ... a hole filling: open
 C_FILL2         equ     12
 
                 org     LOW
+#include "title_px.inc"
 lv_buf          rmb     LV_RECORD       ; a level as read
 lv_map          rmb     LV_CELLS        ; ... and unpacked, a cell a byte
 shadow          rmb     (SH_ROWS+2*SH_MARGIN)*ROW_BYTES ; draw.inc: patches built here
 tmap            rmb     LV_CELLS        ; ... every cell's tile, as drawn
+waytab          rmb     LV_CELLS        ; guards.inc: the ways along each floor
+d12tab          rmb     D12_N           ; draw.inc: y / 12
 
                 org     BSS
 level           rmb     1               ; 1..NLEVELS
@@ -130,6 +144,8 @@ gs              rmb     GD_SIZE         ; guards.inc: the one being worked on
 gu_n            rmb     1
 gu_think        rmb     1               ; ... a guard may still think this frame,
 gu_par          rmb     1               ; ... frame_count when they began
+fr_t0           rmb     2               ; FRC when the frame's work began
+fl_lim          rmb     2               ; frame_left: the limit
 gu_p            rmb     2
 gu_q            rmb     2
 gu_q2           rmb     2
@@ -142,8 +158,13 @@ gd_rr           rmb     1
 gd_lok          rmb     1
 gd_rok          rmb     1
 gd_wc           rmb     1
-gd_wh           rmb     1
-gd_wb           rmb     1
+wy_r            rmb     1               ; way_all, way_upd: the cell,
+wy_c            rmb     1
+wy_rc           rmb     2               ; way_cell: the cell,
+wy_h            rmb     1               ; ... what's there, below,
+wy_b            rmb     1
+wy_v            rmb     1               ; ... its entry,
+wy_p            rmb     2               ; ... where it goes
 gd_fr           rmb     2
 gd_m            rmb     2
 gd_rp           rmb     2
@@ -228,6 +249,7 @@ start:
                 clr     joy_force
                 clr     dbg_safe
                 jsr     frame_init
+                jsr     div12_init
                 clr     hiscore
                 clr     hiscore+1
                 clr     hiscore+2
@@ -247,6 +269,7 @@ new_level:
                 jmp     no_file
 nl_f2:
                 jsr     lv_actors
+                jsr     way_all
                 jsr     lv_scan
                 jsr     guards_speed
                 jsr     holes_init
@@ -258,6 +281,9 @@ nl_f2:
                 clr     started         ; (the guards wait for his first move)
 loop:
                 jsr     frame_wait
+                ldd     FRC             ; (when the frame's work began: the
+                std     fr_t0           ; guards keep within it, frame_left)
+                PROF    1
                 if      DEBUG
                 inc     dbg_loops
                 endif
@@ -269,12 +295,16 @@ loop:
                 staa    joy
 dbg_f1:
                 endif
+                PROF    2
                 jsr     hero_update
+                PROF    3
                 jsr     hole_update
                 jsr     exit_update
                 jsr     hero_pose
+                PROF    4
                 ldx     #hero_a
                 jsr     act_update
+                PROF    5
                 tst     started         ; the guards: once he's moved
                 bne     lp_g1
                 tst     h_t
@@ -282,7 +312,9 @@ dbg_f1:
                 tst     h_dig
                 beq     lp_g2
 lp_g0:          inc     started
-lp_g1:          jsr     guards_update
+lp_g1:          PROF    6
+                jsr     guards_update
+                PROF    7
 lp_g2:
                 if      DEBUG
                 tst     dbg_safe
@@ -654,6 +686,9 @@ exit_update:
                 staa    0,x
                 ldaa    ex_row
                 ldab    ex_col
+                jsr     way_upd
+                ldaa    ex_row
+                ldab    ex_col
                 jsr     draw_cell
                 ldaa    ex_row          ; (and the one below: it may be brick
                 cmpa    #LV_ROWS-1      ; drawn on brick)
@@ -962,6 +997,8 @@ ad_b1:          tst     st_n
                 clr     G_ST,x
                 clr     G_CARRY,x
                 clr     G_OUT,x
+                clr     G_ACC,x
+                clr     G_OWE,x
                 jsr     act_draw
                 ldx     up_s
                 inx
@@ -1043,4 +1080,3 @@ s_congr3:       fcc     "SCORE"
 #include "sprite.asm"
 #include "geode_spr.inc"
 #include "tiles.inc"
-#include "title_px.inc"

@@ -110,15 +110,27 @@ sprite_x:
                 ldaa    #128-6
 sx_r:           rts
 
-div12:                                  ; A = A / 12 (uses B)
-                clrb
-d12_b1:         cmpa    #12
-                bcs     d12_r
-                suba    #12
-                incb
-                bra     d12_b1
-d12_r:          tba
+div12:                                  ; A = A / 12, A < D12_N (uses B, X)
+                ldx     #d12tab
+                tab
+                abx
+                ldaa    0,x
                 rts
+
+; div12_init: the table div12 reads (startup)
+div12_init:
+                ldx     #d12tab
+                clra                    ; A = the quotient, B counts to 12
+d12_b1:         ldab    #12
+d12_b2:         staa    0,x
+                inx
+                cpx     #d12tab+D12_N
+                beq     d12_r
+                decb
+                bne     d12_b2
+                inca
+                bra     d12_b1
+d12_r:          rts
 
 ; act_draw: X = an actor: draw it straight onto the screen (a level's start)
 act_draw:
@@ -302,15 +314,22 @@ au_f7:          suba    cp_y0
                 cmpa    #3
                 bcs     au_c2
                 beq     au_c3
-au_c4:          ldx     cp_src          ; 4 bytes
-                ldd     2,x
+au_c4:          ldx     cp_src          ; 4 bytes (each row: copied, then
+                ldd     2,x             ; both pointers on 32 bytes)
                 std     cp_t2
                 ldd     0,x
                 ldx     cp_dst
                 std     0,x
                 ldd     cp_t2
                 std     2,x
-                bsr     au_next
+                ldab    #ROW_BYTES
+                abx
+                stx     cp_dst
+                ldx     cp_src
+                ldab    #ROW_BYTES
+                abx
+                stx     cp_src
+                dec     cp_k
                 bne     au_c4
                 bra     au_done
 au_c3:          ldx     cp_src          ; 3 bytes
@@ -321,24 +340,29 @@ au_c3:          ldx     cp_src          ; 3 bytes
                 std     0,x
                 ldaa    cp_t2
                 staa    2,x
-                bsr     au_next
+                ldab    #ROW_BYTES
+                abx
+                stx     cp_dst
+                ldx     cp_src
+                ldab    #ROW_BYTES
+                abx
+                stx     cp_src
+                dec     cp_k
                 bne     au_c3
                 bra     au_done
 au_c2:          ldx     cp_src          ; 2 bytes
                 ldd     0,x
                 ldx     cp_dst
                 std     0,x
-                bsr     au_next
-                bne     au_c2
-                bra     au_done
-au_next:        ldd     cp_src          ; the next row: Z set when done
-                addd    #ROW_BYTES
-                std     cp_src
-                ldd     cp_dst
-                addd    #ROW_BYTES
-                std     cp_dst
+                ldab    #ROW_BYTES
+                abx
+                stx     cp_dst
+                ldx     cp_src
+                ldab    #ROW_BYTES
+                abx
+                stx     cp_src
                 dec     cp_k
-                rts
+                bne     au_c2
 au_done:
                 ldx     cp_a            ; drawn as it is now
                 ldd     A_X,x
