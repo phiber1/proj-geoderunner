@@ -24,11 +24,9 @@
 
 ; frames to walk a cell, by level (the hero: 8): slow at first; climbing
 ; takes 2 more (gu_walk, gu_climb, set by guards_speed)
-GSPEED_T:       fcb     10, 14          ; up to level 10: 14 frames
-                fcb     30, 13
-                fcb     60, 12
-                fcb     100, 11
-                fcb     255, 10
+GSPEED_T:       fcb     20, 14          ; up to level 20: 14 frames a cell
+                fcb     60, 13          ; (the hero: 8; owner: with every frame
+                fcb     255, 12         ; kept, 10-11 was too fast for humans)
 G_WALK          equ     14              ; (the slowest: for the poses' halves)
 G_FALL          equ     12              ; ... fall one
 TRAP_T          equ     210             ; frames stuck in a hole before climbing out
@@ -62,12 +60,28 @@ guards_update:
                 ldaa    nguard
                 bne     gup_f0
                 rts
-gup_f0:         staa    gu_n
+gup_f0:         staa    gu_n            ; first those whose redraw was put off
+                ldx     #guards         ; last frame: updated and drawn now,
+gup_a1:         ldaa    G_OWE,x         ; while there's time (never put off
+                beq     gup_a2          ; twice: he'd jump when drawn at last)
+                stx     gu_p
+                jsr     gup_full
+                ldx     gu_p
+                ldaa    #2              ; (done this frame)
+                staa    G_OWE,x
+gup_a2:         ldab    #GD_SIZE
+                abx
+                dec     gu_n
+                bne     gup_a1
+                ldaa    nguard          ; then the others
+                staa    gu_n
                 ldx     #guards
 gup_b1:         stx     gu_p
-                tst     G_OWE,x         ; a redraw put off last frame: now
-                bne     gup_d
-                ldaa    gu_n            ; each guard is redrawn every other
+                ldaa    G_OWE,x
+                beq     gup_b2
+                clr     G_OWE,x         ; (done above)
+                bra     gup_f1
+gup_b2:         ldaa    gu_n            ; each guard is redrawn every other
                 eora    gu_par          ; frame, half of them on each (they
                 lsra                    ; move every frame)
                 bcc     gup_d
@@ -88,24 +102,15 @@ gup_s:          jsr     gs_in           ; not redrawn: the whole update
                 ldx     gu_p
                 jsr     gs_out
                 bra     gup_f1
-gup_d:          jsr     gs_in           ; redrawn: the update, the pose, and
-                PROF    $10             ; drawn
-                jsr     guard_update
-                PROF    $11
-                jsr     guard_pose
-                ldx     gu_p
-                jsr     gs_out
-                ldd     #FRAME_CYCLES-GU_DRAW_MAX  ; time to draw him?  Else
-                jsr     frame_left      ; next frame, first
+gup_d:          ldd     #FRAME_CYCLES-GU_DRAW_MAX-GU_UPD_MAX ; time to draw
+                jsr     frame_left      ; him?  Else next frame, first
                 ldx     gu_p
                 bcs     gup_owe
-                clr     G_OWE,x
-                PROF    $12
-                jsr     act_update
-                PROF    $13
+                jsr     gup_full
                 bra     gup_f1
 gup_owe:        ldaa    #1
                 staa    G_OWE,x
+                bra     gup_s
 gup_f1:
                 ldx     gu_p
                 ldab    #GD_SIZE
@@ -114,6 +119,21 @@ gup_f1:
                 beq     gup_r
                 jmp     gup_b1
 gup_r:          rts
+
+; gup_full: X = gu_p = a guard: updated, posed and redrawn
+gup_full:
+                jsr     gs_in
+                PROF    $10
+                jsr     guard_update
+                PROF    $11
+                jsr     guard_pose
+                ldx     gu_p
+                jsr     gs_out
+                PROF    $12
+                ldx     gu_p
+                jsr     act_update
+                PROF    $13
+                rts
 
 gs_in:                                  ; X = a guard: copy it to gs
 k               set     0
@@ -223,6 +243,7 @@ gd_r1:          rts
 ; fr_t0; the rest of it, after the guards, is GU_TAIL)
 GU_DRAW_MAX     equ     5000            ; (a guard's redraw, at most,
 GU_THINK_MAX    equ     4400            ; ... a guard's thinking,
+GU_UPD_MAX      equ     600             ; ... a guard's update, not thinking,
 GU_TAIL         equ     900             ; ... the loop after the guards)
 frame_left:
                 subd    #GU_TAIL

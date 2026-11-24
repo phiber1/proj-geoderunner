@@ -56,6 +56,11 @@ tt_b3:          ldab    tt_c
                 jsr     txt_str2
                 ldx     #TXT_AT(168,15)
                 jsr     hi_put
+                ldaa    #COLOR_BYTE(CG_RED)
+                staa    txt_col
+                ldx     #TXT_AT(184,9)  ; the maker, at the bottom
+                ldd     #s_maker
+                jsr     txt_str
                 jsr     jingle
                 clr     tw_on
                 clr     tw_i
@@ -221,4 +226,6 @@ jg_tab:         fdb     JG_A4, JG_A4, JG_Q      ; A (a quarter)
 s_press:        fcc     "PRESS SPACE"
                 fcb     0
 s_high:         fcc     "HIGH"
+                fcb     0
+s_maker:        fcc     "AN ABENE GAME"
                 fcb     0
