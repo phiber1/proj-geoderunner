@@ -2,14 +2,15 @@
 ;
 ; title: GEODE in brick, RUNNER in ladders, the hero, a geode and a guard
 ; on a strip of floor, PRESS SPACE and the best score; the jingle plays as
-; it appears (A, A, then A and C together), then SPACE starts a game.
+; it appears (A, A, then A and C together: quick, quicker, held), then
+; SPACE starts a game.
 
 JG_A4           equ     1869            ; (phase steps: f * 65536 * 58 / 894886,
 JG_C5           equ     2223            ; the two-voice loop being 58 cycles)
-JG_Q            equ     7715            ; loops: a quarter note at 120 a minute,
-JG_E            equ     3857            ; ... an eighth,
-JG_W            equ     30858           ; ... a whole note,
-JG_GAP          equ     617             ; ... the gap between notes
+JG_Q            equ     3857            ; loops (15,429 a second): the first A
+JG_E            equ     1929            ; (0.25 s), the second (0.125 s), the
+JG_W            equ     30858           ; chord (2 s), the gap between notes
+JG_GAP          equ     463             ; (0.03 s)
 
 title:
                 jsr     gfx_cls
