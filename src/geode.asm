@@ -206,6 +206,18 @@ bx_w            rmb     1               ; ... bytes across
 ld_n            rmb     1               ; the level bonus count-up: steps,
 ld_t            rmb     1               ; ... frames to the next bop,
 ld_pend         rmb     1               ; ... the first digits to redraw
+hiscore         rmb     3               ; title.inc: the best score (BCD),
+tt_s            rmb     2               ; ... drawing: the screen,
+tt_p            rmb     2               ; ... the letter pixel,
+tt_q            rmb     2               ; ... its pattern,
+tt_c            rmb     1               ; ... the floor's column
+jg_v            rmb     1               ; jingle: the VDG mode,
+jg_p            rmb     2               ; ... the note,
+jg_n            rmb     2               ; ... its loops,
+jg_i1           rmb     2               ; ... the two voices' steps,
+jg_i2           rmb     2
+jg_a1           rmb     2               ; ... and phases
+jg_a2           rmb     2
 
                 org     CODE
 start:
@@ -216,6 +228,11 @@ start:
                 clr     joy_force
                 clr     dbg_safe
                 jsr     frame_init
+                clr     hiscore
+                clr     hiscore+1
+                clr     hiscore+2
+to_title:
+                jsr     title
 new_game:
                 ldaa    #1
                 staa    level
@@ -402,9 +419,10 @@ died:
                 ldx     #TXT_AT(86,11)
                 ldd     #s_over
                 jsr     txt_str2
+                jsr     hi_check
                 ldaa    #240
                 jsr     wait
-                jmp     new_game
+                jmp     to_title
 dd_f1:          jmp     new_level       ; the level again
 
                 if      DEBUG
@@ -516,11 +534,12 @@ congrats:
                 jsr     txt_str2
                 ldx     #TXT_AT(108,19)
                 jsr     score_put
+                jsr     hi_check
                 ldaa    #255
                 jsr     wait
                 ldaa    #255
                 jsr     wait
-                jmp     new_game
+                jmp     to_title
 
 ; box_clear: X = the top left byte, A = rows, B = bytes across: fill
 ; with the background
@@ -1015,6 +1034,7 @@ s_congr3:       fcc     "SCORE"
 #include "holes.inc"
 #include "guards.inc"
 #include "draw.inc"
+#include "title.inc"
 #include "gfx.asm"
 #include "frame.asm"
 #include "sound.asm"
@@ -1023,3 +1043,4 @@ s_congr3:       fcc     "SCORE"
 #include "sprite.asm"
 #include "geode_spr.inc"
 #include "tiles.inc"
+#include "title_px.inc"

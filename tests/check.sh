@@ -19,8 +19,9 @@ check() {   # name, condition (shell test)
 }
 sym() { printf '%04X' 0x$(awk '/Symbol Table/{p=1} p' $LST | tr '|' '\n' | awk -v n=$1 '$1==n{print $3}'); }
 off() { printf '%04X' $((0x$1 + $2)); }
-# load the game the way a player does; level 1 is drawn after ~60 frames
-run() { $H $R/MC10.BIN mcx32sd:$R/mcx32sd_flash.bin 8k sd:$SD frames:200 'type:RUNM"GEODE"\n' frames:60 "$@"; }
+# load the game the way a player does; level 1 is drawn ~60 frames after SPACE
+# (the title and its jingle, then SPACE)
+run() { $H $R/MC10.BIN mcx32sd:$R/mcx32sd_flash.bin 8k sd:$SD frames:200 'type:RUNM"GEODE"\n' frames:240 'type: ' frames:60 "$@"; }
 byte() { grep "^mem $1" | sed -n "${2:-1}p" | awk '{print strtonum("0x"$3)}'; }
 bytes() { grep "^mem $1" | sed -n "${2:-1}p" | cut -d: -f2 | tr -d ' '; }
 
@@ -186,10 +187,12 @@ out=$(run poke:$(cell 13 29),05 poke:$GL,01 poke:$JF,04 frames:9 poke:$JF,00 fra
 check "no bonus without climbing out: score $(echo "$out" | bytes $SC 1) after the last geode, $(echo "$out" | bytes $SC 2) after dying, level $(echo "$out" | byte $LV)" \
       "[ $(echo "$out" | bytes $SC 1) = 000250 ] && [ $(echo "$out" | bytes $SC 2) = 000250 ] && [ $(echo "$out" | byte $LV) -eq 1 ]"
 
-# 11. The last life lost: GAME OVER, then a new game at level 1.
-out=$(run poke:$SC,001234 poke:$LV,05 poke:$LI,01 poke:$HD,01 frames:450 mem:$LI,1 mem:$LV,1 mem:$SC,3)
-check "game over: a new game (lives $(echo "$out" | byte $LI), level $(echo "$out" | byte $LV), score $(echo "$out" | bytes $SC))" \
-      "[ $(echo "$out" | byte $LI) -eq 3 ] && [ $(echo "$out" | byte $LV) -eq 1 ] && [ $(echo "$out" | bytes $SC) = 000000 ]"
+# 11. The last life lost: GAME OVER, the title (waiting, the score now the
+#     best), then SPACE: a new game at level 1.
+HI=$(sym hiscore)
+out=$(run poke:$SC,001234 poke:$LV,05 poke:$LI,01 poke:$HD,01 frames:600 mem:$LV,1 mem:$HI,3 'type: ' frames:60 mem:$LI,1 mem:$LV,1 mem:$SC,3)
+check "game over: the title (still level $(echo "$out" | byte $LV 1), best $(echo "$out" | bytes $HI)), then a new game (lives $(echo "$out" | byte $LI), level $(echo "$out" | byte $LV 2), score $(echo "$out" | bytes $SC))" \
+      "[ $(echo "$out" | byte $LV 1) -eq 5 ] && [ $(echo "$out" | bytes $HI) = 001234 ] && [ $(echo "$out" | byte $LI) -eq 3 ] && [ $(echo "$out" | byte $LV 2) -eq 1 ] && [ $(echo "$out" | bytes $SC) = 000000 ]"
 
 # 12. Speed: on levels with four guards chasing, the game loop keeps up with
 #     the frames (measured after the level is drawn).

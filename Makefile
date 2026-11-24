@@ -47,7 +47,9 @@ build/p2decb: $(ENGINE)/tools/p2decb.c | build
 # the tiles, from the mock-up's art
 build/tiles.inc: tools/mktiles.py mockups/plat_cg6.py | build
 	python3 tools/mktiles.py > $@
-build/geode.s: build/tiles.inc
+build/geode.s: build/tiles.inc build/title_px.inc
+build/title_px.inc: tools/mktitle.py mockups/plat_cg6.py $(ENGINE)/tools/mkfont.py | build
+	python3 tools/mktitle.py > $@
 
 # compiled sprites
 build/%_spr.inc: sprites/%.spr build/spritec
