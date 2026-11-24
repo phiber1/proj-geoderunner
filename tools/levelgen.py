@@ -194,8 +194,10 @@ def standing(g, p):
     return at(g, r, c) not in SOLID + 'HX-' and at(g, r + 1, c) in SOLID
 
 
-def stand_cells(g):
-    return [(r, c) for r in range(ROWS - 1) for c in range(COLS) if standing(g, (r, c))]
+def stand_cells(g, tops=False):
+    """the cells to stand in (on floor; with tops, on a ladder's top too)"""
+    return [(r, c) for r in range(ROWS - 1) for c in range(COLS) if standing(g, (r, c))
+            or (tops and at(g, r, c) == '.' and at(g, r + 1, c) == 'H')]
 
 
 # ---------------------------------------------------------------- repair
@@ -426,39 +428,31 @@ def load_font():
 
 
 def style_word(rnd, P, words):
-    """words spelled in ladders and brick, to climb about on: two lines of
-    up to 4 letters, each letter pixel two cells across and a row down;
-    vertical strokes are ladders, horizontal ones brick floor"""
+    """words spelled in ladders, big and plain, to climb about on: two
+    lines of up to 4 letters, each letter pixel two ladder cells across and
+    a row down; the first line stands on a brick floor, the second on the
+    bottom one"""
     font = load_font()
     g = blank()
     keep = set()
     for line, word in enumerate(words):
-        top = 2 + 6 * line
-        x0 = (COLS - (len(word) * 8 - 2)) // 2
+        top = 2 + 7 * line              # rows 2-6 on a floor at 7; 9-13 on the bottom
+        step = 8 if len(word) < 4 else 7    # (4 letters: closer, leaving the exit columns)
+        x0 = (COLS - (len(word) * step - step + 6)) // 2
         for i, ch in enumerate(word):
             rows = font[ch].split()
-            keep.update((top + yy, x0 + i * 8 + xx) for yy in range(5) for xx in range(6))
+            keep.update((top + yy, x0 + i * step + xx) for yy in range(5) for xx in range(6))
 
             def on(yy, xx):
                 return 0 <= yy < 5 and 0 <= xx < 3 and rows[yy][xx] == '#'
             for gy in range(5):
                 for gx in range(3):
-                    if not on(gy, gx):
-                        continue
-                    x, y = x0 + i * 8 + gx * 2, top + gy
-                    if on(gy - 1, gx) or on(gy + 1, gx):    # a vertical stroke
-                        g[y][x] = 'H'
-                        if not on(gy, gx + 1) and not on(gy, gx - 1):
-                            pass
-                        else:
-                            g[y][x + 1] = 'B'               # (and a horizontal one)
-                        if not on(gy + 1, gx):              # its foot
-                            if y + 1 == 13:
-                                g[13][x] = 'H'
-                            elif g[y + 1][x] == '.':
-                                g[y + 1][x] = 'B'
-                    else:                                   # a horizontal stroke
-                        g[y][x] = g[y][x + 1] = 'B'
+                    if on(gy, gx):                          # every stroke a ladder
+                        x, y = x0 + i * step + gx * 2, top + gy
+                        g[y][x] = g[y][x + 1] = 'H'
+    # the first line stands on a floor (brick: holes to dig, gaps to drop)
+    for x in range(COLS):
+        g[7][x] = 'B' if rnd.random() > 0.12 else '.'
     # ledges in the top corners, for the exit ladder near an edge
     for c0 in (0, COLS - 3):
         if all(g[y][x] == '.' for y in (1, 2) for x in range(c0, c0 + 3)):
@@ -550,11 +544,12 @@ def spread(rnd, pool, k, placed, start):
     return out
 
 
-def place(g, rnd, P, start):
-    """the exit, the geodes, the guards: (score, level) or None if poor"""
+def place(g, rnd, P, start, room=40):
+    """the exit, the geodes, the guards: (score, level) or None if poor
+    (fewer than `room` places to stand)"""
     out, both = two_way(g, start)
-    stand = [p for p in stand_cells(g) if p in both and p != start]
-    if len(stand) < 40:
+    stand = [p for p in stand_cells(g, tops=room < 40) if p in both and p != start]
+    if len(stand) < room:
         return None
     nodig = reach(g, start, dig=False)
     needdig = [p for p in stand if p not in nodig]
@@ -636,7 +631,7 @@ def candidate(n, seed):
     # still go only where the hero can get to and back from)
     if not repair(g, rnd, start, keep=keep, slack=4 if keep else 20) and not keep:
         return None
-    got = place(g, rnd, P, start)
+    got = place(g, rnd, P, start, room=20 if keep else 40)   # (a word: mostly ladders)
     return got and (got[0], got[1], style)
 
 
