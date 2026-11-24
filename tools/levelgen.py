@@ -742,13 +742,18 @@ def candidate(n, seed):
     return got[0], got[1], style, nv
 
 
+# levels made again from other random numbers, the owner having found the
+# first ones unfair (level: a number mixed into its seeds)
+REROLL = {100: 3}     # (100: the first had a guard parked in a dead-end corner)
+
+
 def level(n, want=4):
     """level n: (15 strings of 32 cells, its style), the best of a few
     candidates"""
     best = None
     vaults = params(n)['dig_geodes'] if style_for(n) != 'word' else 0
     for attempt in range(80):
-        got = candidate(n, n * 7919 + attempt * 104729)
+        got = candidate(n, n * 7919 + attempt * 104729 + REROLL.get(n, 0) * 15485863)
         if got and (best is None or got[0] > best[0]):
             best = got
         # (a few candidates, more until one has all the vaults wanted)
