@@ -222,6 +222,17 @@ out=$(run poke:$DS,01 'type:N100' frames:120 poke:$JF,04 frames:60 mem:$DL,1 pok
 l1=$(echo "$out" | byte $DL 1); l2=$(echo "$out" | byte $DL 2); loops=$(( (l2 - l1 + 256) % 256 ))
 check "speed, hero walking with $(echo "$out" | byte $NGUARD) guards on level 100: $loops game loops in 240 frames" "[ $loops -ge 240 ]"
 
+# 12d. The frame tick never stalls under sound: 80 digs, the guards about
+#      (the dig noise:
+#      ~1,800 speaker events a second), the game's ticks counted against
+#      the frames that pass (an interrupt set for a time already past used
+#      to wait for the counter to come round: ~4 ticks lost each time).
+FC=$(sym frame_count); digs=""
+for i in $(seq 1 40); do digs="$digs poke:$JF,14 frames:1 poke:$JF,00 frames:16 poke:$JF,18 frames:1 poke:$JF,00 frames:16"; done
+out=$(run poke:$DS,01 poke:$JF,04 frames:2 poke:$JF,00 frames:300 mem:$FC,1 $digs mem:$FC,1)
+t1=$(echo "$out" | byte $FC 1); t2=$(echo "$out" | byte $FC 2); ticks=$(( (t2 - t1 + 256) % 256 )); want=$(( (40 * 34) % 256 ))
+check "frame ticks under the dig noise: $ticks counted, $want due (mod 256)" "[ $ticks -eq $want ]"
+
 # 13. BREAK gives up the level: a life lost, the level as it started (the
 #     geode collected is back).
 out=$(run mem:$GL,1 poke:$(cell 13 29),05 poke:$JF,04 frames:9 poke:$JF,00 frames:4 mem:$GL,1 break:3 frames:200 mem:$GL,1 mem:$LI,1 mem:$(cell 13 29),1)
