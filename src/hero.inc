@@ -64,6 +64,18 @@ is_solid:
                 cmpa    #C_DIG2
 is_r:           rts
 
+; floor_at: Z set if the cell below the hero's row in column B is floor
+; (brick or stone; off the edge isn't)
+floor_at:
+                cmpb    #LV_COLS        ; (unsigned: -1 is off the edge too)
+                bcc     fa_no
+                ldaa    h_r
+                inca
+                jsr     cell_at
+                jmp     is_solid
+fa_no:          ldaa    #1              ; (clears Z)
+                rts
+
 hero_init:
                 ldd     hero_r          ; the start cell
                 std     h_r
@@ -222,9 +234,17 @@ hu_g1:          staa    hu_here
                 bra     hu_held
 hu_nohead:      jmp     hu_dofall       ; no: he falls
                 bra     hu_held
-hu_ladder:      ldaa    hu_below        ; a ladder's foot, on the floor: he
-                jsr     is_solid        ; stands there (he can dig beside it);
-                beq     hu_held         ; only UP takes him onto it
+hu_ladder:      ldaa    hu_below        ; a ladder's foot, on the floor, or
+                jsr     is_solid        ; where it passes a floor (floor on
+                beq     hu_held         ; either side below): he stands there
+                ldab    h_c             ; and can dig beside it; UP or DOWN
+                decb                    ; takes him on along the ladder
+                jsr     floor_at
+                beq     hu_held
+                ldab    h_c
+                incb
+                jsr     floor_at
+                beq     hu_held
                 ldaa    #1              ; (h_on: 1 on a ladder, 2 on a cable)
                 bra     hu_on
 hu_cable:       ldaa    #2

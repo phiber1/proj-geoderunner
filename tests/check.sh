@@ -96,6 +96,14 @@ out=$(run poke:$JF,04 frames:24 poke:$JF,00 frames:4 mem:$HR,2 mem:$HON,1 poke:$
 check "at a ladder's foot ($(echo "$out" | bytes $HR 1)): standing (on $(echo "$out" | bytes $HON 1)), digs beside it ($(echo "$out" | bytes $(cell 14 26) 1))" \
       "[ $(echo "$out" | bytes $HR 1) = 0D1B ] && [ $(echo "$out" | bytes $HON 1) = 00 ] && [ $(echo "$out" | bytes $(cell 14 26) 1) = 09 ]"
 
+# 5g. Where a tall ladder passes a floor (column 17, row 7 of level 1:
+#     floor either side below), he stands and can dig beside it; UP held
+#     climbs on past it, DOWN held climbs down past it to the bottom.
+out=$(run poke:$DS,01 poke:$HR,0711 poke:$HERO,4460 frames:4 mem:$HON,1 poke:$JF,18 frames:1 poke:$JF,00 frames:4 mem:$(cell 8 18),1 \
+      poke:$JF,01 frames:44 mem:$HR,2 poke:$JF,02 frames:70 mem:$HR,2 poke:$JF,00)
+check "a ladder through a floor: stands (on $(echo "$out" | bytes $HON 1)), digs beside ($(echo "$out" | bytes $(cell 8 18) 1)), up past it ($(echo "$out" | bytes $HR 1)), down past it ($(echo "$out" | bytes $HR 2))" \
+      "[ $(echo "$out" | bytes $HON 1) = 00 ] && [ $(echo "$out" | bytes $(cell 8 18) 1) = 09 ] && [ $(echo "$out" | bytes $HR 1) = 0411 ] && [ $(echo "$out" | bytes $HR 2) = 0A11 ]"
+
 # 6. A hole filling on the hero kills him: a life less, the level again.
 out=$(run poke:$JF,14 frames:1 poke:$JF,00 frames:16 poke:$JF,04 frames:6 poke:$JF,00 poke:$DS,01 frames:450 mem:$LI,1 mem:$HR,2)
 check "a hole filling on him: lives $(echo "$out" | byte $LI), back at the start ($(echo "$out" | bytes $HR))" \
