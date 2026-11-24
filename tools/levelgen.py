@@ -62,7 +62,7 @@ def params(n):
         double=0.0 if n < 8 else 0.15 + 0.35 * t,        # chance of two-deep brick
         geodes=6 + int(6 * t),
         dig_geodes=0 if n < 4 else 1 + int(3 * t),       # geodes only digging reaches
-        guards=1 if n < 3 else 2 if n < 12 else 3 if n < 18 else 4,  # (4 at most: the MC-10 keeps up)
+        guards=1 if n < 3 else 2 if n < 21 else 3 if n < 41 else 4,  # (4 at most: the MC-10 keeps up)
         bottom=0.0 if n < 60 else min(1.0, (n - 60) / 60),  # stone in the bottom floor
     )
 
@@ -506,17 +506,22 @@ STYLES = {'first': lambda rnd, P: style_floors(rnd, P, even=True), 'floors': sty
 
 
 def style_for(n):
-    """the style of level n: the first ten gentle, new styles joining every
-    ten levels"""
+    """the style of level n: the first ten gentle, then plain floors, new
+    styles joining every ten levels from 21 (the owner found ledges with
+    three guards at 13 far too hard, far too soon)"""
     if n % 10 == 0:
         return 'word'
     if n < 10:
         return 'first'
-    choices = ['floors', 'ledges', 'rooms']
+    choices = ['floors']
     if n > 20:
-        choices += ['pyramid', 'ledges']
+        choices += ['rooms', 'floors']
     if n > 30:
-        choices += ['cavern', 'rooms']
+        choices += ['ledges']
+    if n > 40:
+        choices += ['pyramid', 'ledges', 'rooms']
+    if n > 50:
+        choices += ['cavern']
     return Rng(n * 31 + 7).choice(choices)
 
 
@@ -617,7 +622,7 @@ def candidate(n, seed):
         g, keep = style_word(rnd, P, WORDS[(n // 10 - 1) % len(WORDS)])
     else:
         g = STYLES[style](rnd, P)
-        if n > 20 and style not in ('cavern', 'first') and rnd.random() < 0.3:
+        if n > 40 and style not in ('cavern', 'first') and rnd.random() < 0.3:
             g = mirror(g)
             style += ', mirrored'
         add_cables(g, rnd, P)
