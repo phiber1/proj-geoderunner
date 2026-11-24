@@ -60,14 +60,14 @@ def main():
                         p = pat
                         if pat == 0 and (x + 2 * y + 3 * i) % STUD == 0:
                             p = 2
-                            studs.append(off)
+                            studs.append((off, p))
                         print("\tfdb\t%d\n\tfcb\t%d" % (off, p * PX_ROWS))
     print("\tfdb\t$FFFF")
     print("; the geodes, to twinkle")
     print("TITLE_STUDS\tequ\t%d" % len(studs))
     print("title_studs:")
-    for off in studs:
-        print("\tfdb\t%d" % off)
+    for off, p in studs:                # (where, and its own pattern)
+        print("\tfdb\t%d\n\tfcb\t%d" % (off, p * PX_ROWS))
 
 
 if __name__ == '__main__':

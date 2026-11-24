@@ -110,9 +110,10 @@ twinkle:
                 staa    tw_t
                 tst     tw_on
                 beq     tw_f1
-                clr     tw_on           ; the flash over: back to a geode
-                ldab    #TITLE_PX_ROWS*2
-                bra     tw_draw
+                clr     tw_on           ; the flash over: back to its geode
+                bsr     tw_at
+                ldab    2,x
+                jmp     px_draw
 tw_f1:          ldaa    tw_i            ; the next one flashes
                 adda    #7
 tw_b1:          cmpa    #TITLE_STUDS
@@ -122,15 +123,16 @@ tw_b1:          cmpa    #TITLE_STUDS
 tw_f2:          staa    tw_i
                 inc     tw_on
                 ldab    #TITLE_PX_ROWS*3
-tw_draw:        pshb
-                ldx     #title_studs
-                ldab    tw_i
+                bsr     tw_at
+                ldab    #TITLE_PX_ROWS*3
+                jmp     px_draw
+tw_at:          ldx     #title_studs    ; X: the geode tw_i (3 bytes each),
+                ldab    tw_i            ; tt_o: its screen offset
+                abx
                 abx
                 abx
                 ldd     0,x
                 std     tt_o
-                pulb
-                jmp     px_draw
 tw_r:           rts
 
 ; hi_put: X = where: the best score's six digits
