@@ -528,9 +528,9 @@ def break_stone(g):
                 while x < COLS and g[r][x] == 'S' and g[r - 1][x] not in SOLID:
                     x += 1
                 if x - x0 > STONE_RUN:
-                    for k in range(x0 + STONE_RUN, x - 1, STONE_RUN + 2):
+                    for k in range(x0 + STONE_RUN, x, STONE_RUN + 2):
                         g[r][k] = 'B'
-                        if k + 1 < x - 0:
+                        if k + 1 < x:
                             g[r][k + 1] = 'B'
             else:
                 x += 1
@@ -765,6 +765,7 @@ def candidate(n, seed):
     if not repair(g, rnd, start, keep=set(keep) | {start}, slack=4 if style == 'word' else 20,
                   skip=keep if vaults else ()) and style != 'word':
         return None
+    break_stone(g)                  # (again: the repair's ladders change the walkways)
     got = place(g, rnd, P, start, room=20 if style == 'word' else 40, vaults=vaults)
     if not got:
         return None
