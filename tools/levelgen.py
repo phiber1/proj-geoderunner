@@ -727,6 +727,13 @@ def candidate(n, seed):
     if not starts:
         return None
     start = rnd.choice(starts)
+    # brick under the hero's start and four cells either side, even on the
+    # stone bottoms of the higher levels: somewhere to trap the first guards
+    # (owner: level 101 started him in a stone corridor, the only ladders
+    # far off and the guards coming down them: no way to survive)
+    for x in range(max(0, start[1] - 4), min(COLS, start[1] + 5)):
+        if g[14][x] == 'S':
+            g[14][x] = 'B'
     # (a word level may keep some letter floors out of reach: its geodes
     # still go only where the hero can get to and back from)
     # (no ladder through the start cell: the hero's mark would cut it)
