@@ -199,6 +199,8 @@ ex_state        rmb     1               ; ... 0 hidden, 1 growing, 2 there
 ex_row          rmb     1               ; ... growing: the next row,
 ex_t            rmb     1               ; ... frames to it
 w_n             rmb     1               ; wait
+bx_n            rmb     1               ; box_clear: rows left,
+bx_w            rmb     1               ; ... bytes across
 ld_n            rmb     1               ; the level bonus count-up: steps,
 ld_t            rmb     1               ; ... frames to the next bop,
 ld_pend         rmb     1               ; ... the first digits to redraw
@@ -388,8 +390,12 @@ died:
                 jsr     wait
                 dec     lives
                 bne     dd_f1
-                jsr     status_draw     ; the last one: game over
-                ldaa    #COLOR_BYTE(CG_RED)
+                jsr     status_draw     ; the last one: game over, in the
+                ldx     #TXT_AT(82,9)   ; ladders' color on a clear box (it
+                ldaa    #20             ; can't be lost against the bricks)
+                ldab    #13
+                jsr     box_clear
+                ldaa    #COLOR_BYTE(CG_YELLOW)
                 staa    txt_col
                 ldx     #TXT_AT(86,11)
                 ldd     #s_over
@@ -513,6 +519,25 @@ congrats:
                 ldaa    #255
                 jsr     wait
                 jmp     new_game
+
+; box_clear: X = the top left byte, A = rows, B = bytes across: fill
+; with the background
+box_clear:
+                staa    bx_n
+                stab    bx_w
+bx_b1:          ldab    bx_w
+                pshx
+                ldaa    #GFX_FILL
+bx_b2:          staa    0,x
+                inx
+                decb
+                bne     bx_b2
+                pulx
+                ldab    #ROW_BYTES
+                abx
+                dec     bx_n
+                bne     bx_b1
+                rts
 
 ; wait: A frames (the sound going on)
 wait:
