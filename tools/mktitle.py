@@ -17,10 +17,10 @@ from plat_cg6 import SCHEMES        # noqa: E402
 PX_ROWS = 8
 LINES = [('GEODE', 10, 0), ('RUNNER', 58, 1)]     # word, top row, pattern
 PATTERNS = [
-    ["BBBB", "BBBB", "BBBB", "....", "BBBB", "BBBB", "BBBB", "...."],   # brick (courses)
+    ["BBBB", "BBBB", "BBBB", "GGGG", "BBBB", "BBBB", "BBBB", "GGGG"],   # brick (yellow mortar)
     ["L..L", "LLLL", "L..L", "L..L", "L..L", "LLLL", "L..L", "L..L"],   # ladder
-    ["BBBB", "BGGB", "GgGG", "GGGG", "BGgB", "BBGB", "....", "BBBB"],   # a geode in the brick
-    ["BBGB", "BBGB", "BGGB", "GGGG", "BGGB", "BBGB", "..G.", "BBBB"],   # ... twinkling
+    ["BBBB", "BGGB", "GgGG", "GGGG", "BGgB", "BBGB", "GGGG", "BBBB"],   # a geode in the brick
+    ["BBGB", "BBGB", "BGGB", "GGGG", "BGGB", "BBGB", "GGGG", "BBBB"],   # ... twinkling
 ]
 STUD = 3            # (a geode in every STUD-th brick pixel, spread about)
 
