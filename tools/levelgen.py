@@ -512,6 +512,30 @@ def bottom_floor(g, rnd, P):
         c += w
 
 
+STONE_RUN = 5       # at most this many stone cells in a row under a walkway
+
+
+def break_stone(g):
+    """no long stone floors: under a walkway, a stretch of more than
+    STONE_RUN stone cells gets two bricks after every STONE_RUN (owner:
+    long stone floors with the guards coming down a ladder onto them left
+    nowhere to trap them: level 102)"""
+    for r in range(1, ROWS):
+        x = 0
+        while x < COLS:
+            if g[r][x] == 'S' and g[r - 1][x] not in SOLID:
+                x0 = x
+                while x < COLS and g[r][x] == 'S' and g[r - 1][x] not in SOLID:
+                    x += 1
+                if x - x0 > STONE_RUN:
+                    for k in range(x0 + STONE_RUN, x - 1, STONE_RUN + 2):
+                        g[r][k] = 'B'
+                        if k + 1 < x - 0:
+                            g[r][k + 1] = 'B'
+            else:
+                x += 1
+
+
 def add_vaults(g, rnd, P):
     """vaults: sealed brick boxes under a floor, a geode inside, dug into from
     above (through one brick, or for a double, two: dig two holes side by
@@ -720,6 +744,7 @@ def candidate(n, seed):
     # (a word level's bottom floor is all brick: somewhere to trap guards
     # among the letters' ladders)
     bottom_floor(g, rnd, dict(P, bottom=0) if style == 'word' else P)
+    break_stone(g)
     vaults = add_vaults(g, rnd, P) if style != 'word' else []
     if vaults:                      # (no ladders through them)
         keep = set().union(*(v[3] for v in vaults))
@@ -820,10 +845,11 @@ def write_dat(out, count):
 # ---------------------------------------------------------------- fairness
 
 # The owner can't play all 150 levels to prove each fair, so the
-# generator rejects layouts like the ones he found impossible: a level
-# whose start, or a geode, lies down a long stretch of floor that can't
-# be dug (stone, or ladders over it: nowhere to trap a guard following
-# him) before any way off that floor.
+# generator avoids layouts like the ones he found impossible: no stone
+# floor walked on runs more than STONE_RUN cells (break_stone); and a level
+# whose start, or a geode, lies down a long stretch of floor that can't be
+# dug (stone, or ladders over it: nowhere to trap a guard following him)
+# before any way off that floor is rejected.
 FAIR_START = 6      # the start: at most this much undiggable floor on the way to a ladder up
 FAIR_GEODE = 9      # a geode: ... on the way to any way off its floor (up, down, a drop)
 
@@ -861,6 +887,13 @@ def fairness(lv):
     wrong = []
     if _run_out(g, start, up) > FAIR_START:
         wrong.append('start cornered')
+    for r in range(1, ROWS):                # no long stone floor walked on
+        run = 0
+        for x in range(COLS):
+            run = run + 1 if g[r][x] == 'S' and g[r - 1][x] not in SOLID else 0
+            if run > STONE_RUN:
+                wrong.append('stone floor at %d,%d' % (r, x))
+                break
     walk = reach(g, start, dig=False)
     for p in cells:
         if lv[p[0]][p[1]] == 'T' and p in walk and _run_out(g, p, off) > FAIR_GEODE:
