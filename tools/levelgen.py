@@ -608,10 +608,16 @@ STYLES = {'first': lambda rnd, P: style_floors(rnd, P, even=True), 'floors': sty
           'pyramid': style_pyramid, 'cavern': style_cavern}
 
 
+# levels given another style, the owner having found the first unfair
+STYLE_SET = {102: 'floors'}     # (102: a cavern, all dead ends, nowhere to trap four guards)
+
+
 def style_for(n):
     """the style of level n: the first ten gentle, then plain floors, new
     styles joining every ten levels from 21 (the owner found ledges with
     three guards at 13 far too hard, far too soon)"""
+    if n in STYLE_SET:
+        return STYLE_SET[n]
     if n % 10 == 0:
         return 'word'
     if n < 10:
