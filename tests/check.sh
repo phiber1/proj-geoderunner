@@ -89,6 +89,13 @@ out=$(run poke:$JF,10 frames:30 poke:$JF,14 frames:6 poke:$JF,10 frames:20 mem:$
 check "SPACE held: one hole ($(echo "$out" | bytes $(cell 14 31) 1)), none as he runs ($(echo "$out" | bytes $(cell 14 29) 1) $(echo "$out" | bytes $(cell 14 28) 1)), at $(echo "$out" | bytes $HR 1)" \
       "[ $(echo "$out" | bytes $(cell 14 31) 1) = 00 ] && [ $(echo "$out" | bytes $(cell 14 29) 1) = 01 ] && [ $(echo "$out" | bytes $(cell 14 28) 1) = 01 ] && [ $(echo "$out" | bytes $HR 1) != 0D1E ]"
 
+# 5f. Walking onto a ladder's foot and stopping, he stands (not on the
+#     ladder) and can dig beside it; UP still climbs.
+HON=$(sym h_on)
+out=$(run poke:$JF,04 frames:24 poke:$JF,00 frames:4 mem:$HR,2 mem:$HON,1 poke:$JF,14 frames:1 poke:$JF,00 frames:4 mem:$(cell 14 26),1)
+check "at a ladder's foot ($(echo "$out" | bytes $HR 1)): standing (on $(echo "$out" | bytes $HON 1)), digs beside it ($(echo "$out" | bytes $(cell 14 26) 1))" \
+      "[ $(echo "$out" | bytes $HR 1) = 0D1B ] && [ $(echo "$out" | bytes $HON 1) = 00 ] && [ $(echo "$out" | bytes $(cell 14 26) 1) = 09 ]"
+
 # 6. A hole filling on the hero kills him: a life less, the level again.
 out=$(run poke:$JF,14 frames:1 poke:$JF,00 frames:16 poke:$JF,04 frames:6 poke:$JF,00 poke:$DS,01 frames:450 mem:$LI,1 mem:$HR,2)
 check "a hole filling on him: lives $(echo "$out" | byte $LI), back at the start ($(echo "$out" | bytes $HR))" \

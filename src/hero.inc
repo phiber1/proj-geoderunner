@@ -222,7 +222,10 @@ hu_g1:          staa    hu_here
                 bra     hu_held
 hu_nohead:      jmp     hu_dofall       ; no: he falls
                 bra     hu_held
-hu_ladder:      ldaa    #1              ; (h_on: 1 on a ladder, 2 on a cable)
+hu_ladder:      ldaa    hu_below        ; a ladder's foot, on the floor: he
+                jsr     is_solid        ; stands there (he can dig beside it);
+                beq     hu_held         ; only UP takes him onto it
+                ldaa    #1              ; (h_on: 1 on a ladder, 2 on a cable)
                 bra     hu_on
 hu_cable:       ldaa    #2
 hu_on:          staa    h_on
