@@ -18,28 +18,11 @@ title:
 tt_b1:          ldd     0,x
                 addd    #1              ; (fdb $FFFF ends them)
                 beq     tt_f1
-                addd    #SCREEN-1
-                std     tt_s
-                ldab    2,x
+                subd    #1
+                std     tt_o
+                ldab    2,x             ; (its pattern)
                 stx     tt_p
-                ldx     #title_pat
-                abx
-                stx     tt_q
-                ldab    #TITLE_PX_ROWS
-tt_b2:          ldx     tt_q
-                ldaa    0,x
-                inx
-                stx     tt_q
-                ldx     tt_s
-                staa    0,x
-                ldx     tt_s
-                pshb
-                ldab    #ROW_BYTES
-                abx
-                pulb
-                stx     tt_s
-                decb
-                bne     tt_b2
+                jsr     px_draw
                 ldx     tt_p
                 inx
                 inx
@@ -74,19 +57,81 @@ tt_b3:          ldab    tt_c
                 ldx     #TXT_AT(168,15)
                 jsr     hi_put
                 jsr     jingle
-tt_w1:          jsr     frame_wait      ; SPACE: up first, then down
-                jsr     snd_frame
+                clr     tw_on
+                clr     tw_i
+                ldaa    #TW_T
+                staa    tw_t
+tt_w1:          jsr     frame_wait      ; SPACE: up first, then down (the
+                jsr     twinkle         ; geodes twinkling)
                 jsr     kbd_read
                 ldaa    joy
                 bita    #J_FIRE
                 bne     tt_w1
 tt_w2:          jsr     frame_wait
-                jsr     snd_frame
+                jsr     twinkle
                 jsr     kbd_read
                 ldaa    joy
                 bita    #J_FIRE
                 beq     tt_w2
-tt_r:           rts
+                rts
+
+; px_draw: a letter pixel: tt_o = its screen offset, B = its pattern's
+; offset in title_pat
+px_draw:
+                ldx     #title_pat
+                abx
+                stx     tt_q
+                ldd     tt_o
+                addd    #SCREEN
+                std     tt_s
+                ldab    #TITLE_PX_ROWS
+pd_b1:          ldx     tt_q
+                ldaa    0,x
+                inx
+                stx     tt_q
+                ldx     tt_s
+                staa    0,x
+                pshb
+                ldab    #ROW_BYTES
+                abx
+                pulb
+                stx     tt_s
+                decb
+                bne     pd_b1
+                rts
+
+; twinkle: once a frame on the title: every TW_T frames a geode in GEODE
+; flashes, then the next (stepping on by 7 through them, so it moves about)
+TW_T            equ     6
+twinkle:
+                dec     tw_t
+                bne     tw_r
+                ldaa    #TW_T
+                staa    tw_t
+                tst     tw_on
+                beq     tw_f1
+                clr     tw_on           ; the flash over: back to a geode
+                ldab    #TITLE_PX_ROWS*2
+                bra     tw_draw
+tw_f1:          ldaa    tw_i            ; the next one flashes
+                adda    #7
+tw_b1:          cmpa    #TITLE_STUDS
+                bcs     tw_f2
+                suba    #TITLE_STUDS
+                bra     tw_b1
+tw_f2:          staa    tw_i
+                inc     tw_on
+                ldab    #TITLE_PX_ROWS*3
+tw_draw:        pshb
+                ldx     #title_studs
+                ldab    tw_i
+                abx
+                abx
+                ldd     0,x
+                std     tt_o
+                pulb
+                jmp     px_draw
+tw_r:           rts
 
 ; hi_put: X = where: the best score's six digits
 hi_put:

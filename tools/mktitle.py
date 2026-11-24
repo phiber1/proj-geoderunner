@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""mktitle.py: the title's big letters, GEODE in brick and RUNNER in
-ladders (like the word levels), from the engine's 3x5 font, as data for
-src/title.inc.
+"""mktitle.py: the title's big letters, GEODE in brick studded with
+geodes and RUNNER in ladders (like the word levels), from the engine's
+3x5 font, as data for src/title.inc (which makes the geodes twinkle).
 
     python3 tools/mktitle.py > build/title_px.inc
 
@@ -19,7 +19,10 @@ LINES = [('GEODE', 10, 0), ('RUNNER', 58, 1)]     # word, top row, pattern
 PATTERNS = [
     ["BBBB", "BBBB", "BBBB", "....", "BBBB", "BBBB", "BBBB", "...."],   # brick (courses)
     ["L..L", "LLLL", "L..L", "L..L", "L..L", "LLLL", "L..L", "L..L"],   # ladder
+    ["BBBB", "BGGB", "GgGG", "GGGG", "BGgB", "BBGB", "....", "BBBB"],   # a geode in the brick
+    ["BBGB", "BBGB", "BGGB", "GGGG", "BGGB", "BBGB", "..G.", "BBBB"],   # ... twinkling
 ]
+STUD = 3            # (a geode in every STUD-th brick pixel, spread about)
 
 
 def font():
@@ -45,6 +48,7 @@ def main():
         print("\tfcb\t" + ", ".join(out))
     print("; the letter pixels: the screen offset of each, and its pattern")
     print("title_px:")
+    studs = []
     for word, top, pat in LINES:
         x0 = (32 - (len(word) * 4 - 1)) // 2
         for i, ch in enumerate(word):
@@ -53,8 +57,17 @@ def main():
                 for x in range(3):
                     if rows[y][x] == '#':
                         off = (top + y * PX_ROWS) * 32 + x0 + i * 4 + x
-                        print("\tfdb\t%d\n\tfcb\t%d" % (off, pat * PX_ROWS))
+                        p = pat
+                        if pat == 0 and (x + 2 * y + 3 * i) % STUD == 0:
+                            p = 2
+                            studs.append(off)
+                        print("\tfdb\t%d\n\tfcb\t%d" % (off, p * PX_ROWS))
     print("\tfdb\t$FFFF")
+    print("; the geodes, to twinkle")
+    print("TITLE_STUDS\tequ\t%d" % len(studs))
+    print("title_studs:")
+    for off in studs:
+        print("\tfdb\t%d" % off)
 
 
 if __name__ == '__main__':

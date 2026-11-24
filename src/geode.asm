@@ -231,7 +231,11 @@ hiscore         rmb     3               ; title.inc: the best score (BCD),
 tt_s            rmb     2               ; ... drawing: the screen,
 tt_p            rmb     2               ; ... the letter pixel,
 tt_q            rmb     2               ; ... its pattern,
-tt_c            rmb     1               ; ... the floor's column
+tt_c            rmb     1               ; ... the floor's column,
+tt_o            rmb     2               ; ... a letter pixel's screen offset
+tw_t            rmb     1               ; ... twinkling: frames to the next,
+tw_on           rmb     1               ; ... one flashing now,
+tw_i            rmb     1               ; ... which
 jg_v            rmb     1               ; jingle: the VDG mode,
 jg_p            rmb     2               ; ... the note,
 jg_n            rmb     2               ; ... its loops,
