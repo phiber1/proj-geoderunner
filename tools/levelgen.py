@@ -41,7 +41,7 @@ import sys
 
 COLS, ROWS = 32, 15
 SOLID = 'BS'
-WORDS = [('DIG', 'DEEP'), ('MC10', '1983'), ('GEMS', 'RUN'), ('ROCK', 'ON'),
+WORDS = [('DIG', 'DEEP'), ('MC10', '1983'), ('XTAL', 'RUN'), ('ROCK', 'ON'),
          ('CAVE', 'IN'), ('HI', 'MOM'), ('LOOT', 'DIG'), ('GO', 'WEST'),
          ('OH', 'NO'), ('GEO', 'DES'), ('BLRP', '!'), ('HALF', 'WAY?'),
          ('DONT', 'STOP'), ('THE', 'END?'), ('LAST', 'ONE!')]    # levels 10, 20 ... 150
