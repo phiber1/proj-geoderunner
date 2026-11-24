@@ -195,7 +195,8 @@ ex_row          rmb     1               ; ... growing: the next row,
 ex_t            rmb     1               ; ... frames to it
 w_n             rmb     1               ; wait
 ld_n            rmb     1               ; the level bonus count-up: steps,
-ld_t            rmb     1               ; ... frames to the next bop
+ld_t            rmb     1               ; ... frames to the next bop,
+ld_pend         rmb     1               ; ... the first digits to redraw
 
                 org     CODE
 start:
@@ -302,7 +303,7 @@ lp_f1:
                 anda    key_was
                 bne     lp_n1
                 jmp     loop
-lp_n1:          bra     next_level
+lp_n1:          jmp     next_level
                 else
                 jmp     loop
                 endif
@@ -317,6 +318,7 @@ level_done:
                 staa    ld_n            ; tens, a bop every LD_BOP frames
                 ldaa    #1
                 staa    ld_t
+                clr     ld_pend
 lb_b1:          jsr     frame_wait
                 jsr     snd_frame
                 dec     ld_t
@@ -328,13 +330,27 @@ lb_b1:          jsr     frame_wait
                 jsr     snd_play
 lb_f1:          ldd     #$0010
                 jsr     score_add
-                ldaa    score+2         ; (a carry: all six digits, else
-                bne     lb_f2           ; just the last two: in a frame)
-                jsr     status_score
+                ldaa    #COLOR_BYTE(CG_YELLOW) ; (two digits a frame, to keep
+                staa    txt_col         ; in a frame: the last two; after a
+                tst     ld_pend         ; carry the middle two instead, and
+                beq     lb_f1a          ; the first two the frame after if
+                clr     ld_pend         ; the carry went on; the end redraws
+                ldx     #TXT_AT(1,6)    ; them all)
+                ldaa    score
+                jsr     sp_byte
                 bra     lb_f3
-lb_f2:          ldaa    #COLOR_BYTE(CG_YELLOW)
-                staa    txt_col
-                ldx     #TXT_AT(1,10)
+lb_f1a:         ldaa    score+2
+                bita    #$F0
+                bne     lb_f2
+                ldaa    score+1
+                bita    #$0F
+                bne     lb_f1b
+                inc     ld_pend
+lb_f1b:         ldx     #TXT_AT(1,8)
+                ldaa    score+1
+                jsr     sp_byte
+                bra     lb_f3
+lb_f2:          ldx     #TXT_AT(1,10)
                 ldaa    score+2
                 jsr     sp_byte
 lb_f3:

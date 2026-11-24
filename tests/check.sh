@@ -137,6 +137,15 @@ check "out at the top: the bonus counts up by tens (score $mid partway)" \
 check "the count done: score $(echo "$out" | bytes $SC 3), lives $(echo "$out" | byte $LI), level $(echo "$out" | byte $LV)" \
       "[ $(echo "$out" | bytes $SC 3) = 001750 ] && [ $(echo "$out" | byte $LI) -eq 4 ] && [ $(echo "$out" | byte $LV) -eq 2 ]"
 
+# 10a. The count shows on screen in every column, even from a score not
+#      ending in 0 (a trapped guard is 75): the thousands digit changes
+#      during the count, not only at its end.
+out=$(run poke:$SC,000075 poke:$(cell 13 29),05 poke:$GL,01 poke:$JF,04 frames:9 poke:$JF,00 frames:100 \
+      poke:$HR,00$(printf '%02X' $EXC) frames:3 mem:4000,544 frames:117 mem:$SC,3 mem:4000,544)
+thou() { echo "$out" | grep "^mem 4000" | sed -n "$1p" | cut -d: -f2 | awk '{for (r = 0; r < 17; r++) printf "%s", $(r * 32 + 9)}'; }
+check "the count on screen: thousands digit redrawn partway (score $(echo "$out" | bytes $SC 1))" \
+      "[ \"$(thou 1)\" != \"$(thou 2)\" ] && [ $(echo "$out" | bytes $SC 1 | cut -c3) = 1 ]"
+
 # 10b. The level bonus is only for climbing out: every geode collected and
 #      then dying before the exit gives none (the level starts over).
 out=$(run poke:$(cell 13 29),05 poke:$GL,01 poke:$JF,04 frames:9 poke:$JF,00 frames:100 mem:$SC,3 poke:$HD,01 frames:150 mem:$SC,3 mem:$LV,1)
