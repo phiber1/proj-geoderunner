@@ -22,13 +22,13 @@
 ; The scratch copy: the guard being worked on is copied to gs (GD_SIZE
 ; bytes) and back, so the routines here can use X freely.
 
-; frames to walk a cell, by level (the hero: 8): slow at first; climbing
-; takes 2 more (gu_walk, gu_climb, set by guards_speed)
-GSPEED_T:       fcb     20, 14          ; up to level 20: 14 frames a cell
-                fcb     60, 13          ; (the hero: 8; owner: with every frame
-                fcb     255, 12         ; kept, 10-11 was too fast for humans)
+; frames to walk a cell, by level (the hero: 8); climbing takes 2 more
+; (gu_walk, gu_climb, set by guards_speed).  One pace all through (owner:
+; faster ones higher up were "like cockroaches", too fast for anyone):
+; the challenge grows from more guards, harder levels and vaults instead
+GSPEED_T:       fcb     255, 14
 G_WALK          equ     14              ; (the slowest: for the poses' halves)
-G_FALL          equ     12              ; ... fall one
+G_FALL          equ     14              ; ... fall one (the hero: 12)
 TRAP_T          equ     210             ; frames stuck in a hole before climbing out
 CARRY_T         equ     600             ; frames a geode is carried at most
 
@@ -201,7 +201,7 @@ gd_step:        ldaa    gs_dir
                 beq     gd_sh
                 cmpa    #D_RIGHT
                 beq     gd_sh
-                ldab    #G_FALL         ; up, down, falling: 12 rows
+                ldab    #G_FALL         ; up, down, falling: 12 rows (G_FALL frames)
                 cmpa    #D_FALL
                 beq     gd_sv
                 ldab    gu_climb
@@ -273,7 +273,7 @@ gf_s:           ldaa    G_DIR,x
                 beq     gf_h
                 cmpa    #D_RIGHT
                 beq     gf_h
-                ldab    #G_FALL         ; up, down, falling: 12 rows
+                ldab    #G_FALL         ; up, down, falling: 12 rows (G_FALL frames)
                 cmpa    #D_FALL
                 beq     gf_v1
                 ldab    gu_climb

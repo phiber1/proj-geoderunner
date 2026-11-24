@@ -228,10 +228,10 @@ out=$(run mem:$GL,1 poke:$(cell 13 29),05 poke:$JF,04 frames:9 poke:$JF,00 frame
 check "BREAK: geodes $(echo "$out" | byte $GL 1) -> $(echo "$out" | byte $GL 2) -> $(echo "$out" | byte $GL 3), lives $(echo "$out" | byte $LI)" \
       "[ $(echo "$out" | byte $GL 3) -eq $(echo "$out" | byte $GL 1) ] && [ $(echo "$out" | byte $LI) -eq 2 ] && [ $(echo "$out" | byte $(cell 13 29)) -eq 0 ]"
 
-# 14. The guards are slower on the first levels, faster later.
+# 14. The guards keep one pace on every level (14 frames a cell).
 GW=$(sym gu_walk)
 w1=$(run mem:$GW,1 | byte $GW); w2=$(run poke:$LV,96 poke:$HD,01 frames:150 mem:$GW,1 | byte $GW)
-check "guard speed: $w1 frames a cell on level 1, $w2 on level 150" "[ $w1 -gt $w2 ]"
+check "guard speed: $w1 frames a cell on level 1, $w2 on level 150 (one pace)" "[ $w1 -eq 14 ] && [ $w2 -eq 14 ]"
 
 # 15. A guard doesn't cross a hole that's closing: he waits at its edge
 #     until it has closed, then walks over it (he used to fall in and,
