@@ -148,6 +148,7 @@ seed            rmb     2
 h_dig           rmb     1               ; hero.inc: frames left digging
 h_dlat          rmb     1               ; ... a SPACE press remembered: frames left,
 h_ddir          rmb     1               ; ... and A/S held with it
+h_spw           rmb     1               ; ... SPACE last frame (for the press)
 h_head          rmb     1               ; ... standing on a guard's head
 h_dead          rmb     1               ; ... nonzero: a hole filled on him
 hu_dc           rmb     1               ; ... the side he digs (-1, 1)

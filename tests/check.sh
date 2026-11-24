@@ -74,9 +74,20 @@ check "a SPACE tap mid-step digs on arrival (at $(echo "$out" | bytes $HR 1): ce
       "[ $(echo "$out" | bytes $HR 1) = 0D1D ] && echo \" 09 0A \" | grep -q \" $(echo "$out" | bytes $(cell 14 28) 1) \""
 
 # 5c. No digging under a geode (as under a ladder).
-out=$(run poke:$(cell 13 29),05 poke:$JF,14 frames:1 poke:$JF,00 frames:20 mem:$(cell 14 29),1 mem:$(cell 13 29),1)
-check "no dig under a geode (brick $(echo "$out" | bytes $(cell 14 29) 1), geode $(echo "$out" | bytes $(cell 13 29) 1))" \
-      "[ $(echo "$out" | bytes $(cell 14 29) 1) = 01 ] && [ $(echo "$out" | bytes $(cell 13 29) 1) = 05 ]"
+out=$(run poke:$(cell 13 29),05 poke:$JF,14 frames:1 poke:$JF,00 frames:20 mem:$(cell 14 29),1)
+check "no dig under a geode (brick $(echo "$out" | bytes $(cell 14 29) 1))" "[ $(echo "$out" | bytes $(cell 14 29) 1) = 01 ]"
+
+# 5e. The hole goes the way he faced when SPACE was pressed: tapped
+#     walking left, then right held before he arrives: still left.
+out=$(run poke:$JF,04 frames:3 poke:$JF,10 frames:1 poke:$JF,08 frames:5 poke:$JF,00 frames:10 mem:$(cell 14 28),1 mem:$(cell 14 30),1)
+check "dig way from the press (left $(echo "$out" | bytes $(cell 14 28) 1), right $(echo "$out" | bytes $(cell 14 30) 1))" \
+      "echo \" 09 0A 00 \" | grep -q \" $(echo "$out" | bytes $(cell 14 28) 1) \" && [ $(echo "$out" | bytes $(cell 14 30) 1) = 01 ]"
+
+# 5d. One press, one hole: SPACE held digs once (the way he faces, right),
+#     and pressing A with it still held walks him left, no second hole.
+out=$(run poke:$JF,10 frames:30 poke:$JF,14 frames:6 poke:$JF,10 frames:20 mem:$(cell 14 31),1 mem:$(cell 14 29),1 mem:$(cell 14 28),1 mem:$HR,2)
+check "SPACE held: one hole ($(echo "$out" | bytes $(cell 14 31) 1)), none as he runs ($(echo "$out" | bytes $(cell 14 29) 1) $(echo "$out" | bytes $(cell 14 28) 1)), at $(echo "$out" | bytes $HR 1)" \
+      "[ $(echo "$out" | bytes $(cell 14 31) 1) = 00 ] && [ $(echo "$out" | bytes $(cell 14 29) 1) = 01 ] && [ $(echo "$out" | bytes $(cell 14 28) 1) = 01 ] && [ $(echo "$out" | bytes $HR 1) != 0D1E ]"
 
 # 6. A hole filling on the hero kills him: a life less, the level again.
 out=$(run poke:$JF,14 frames:1 poke:$JF,00 frames:16 poke:$JF,04 frames:6 poke:$JF,00 poke:$DS,01 frames:450 mem:$LI,1 mem:$HR,2)

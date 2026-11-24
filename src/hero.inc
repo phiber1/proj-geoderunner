@@ -88,11 +88,21 @@ hero_init:
 
 ; hero_update: once a frame
 hero_update:
-                ldab    joy             ; SPACE is remembered for a moment, so
-                bitb    #J_FIRE         ; a quick tap mid-move still digs at
-                beq     hu_l1           ; the next cell
-                andb    #J_LEFT|J_RIGHT
-                stab    h_ddir
+                ldab    joy             ; SPACE: one press, one hole.  The
+                andb    #J_FIRE         ; press is remembered for a moment, so
+                tba                     ; a quick tap mid-step still digs at
+                eora    h_spw           ; the next cell; holding it does
+                stab    h_spw           ; nothing more
+                anda    h_spw
+                beq     hu_l1
+                ldab    joy             ; the way: A/S with the press, else
+                andb    #J_LEFT|J_RIGHT ; the way he faces then (an arrow
+                bne     hu_l0           ; pressed later doesn't turn it)
+                ldab    #J_RIGHT
+                tst     h_face
+                beq     hu_l0
+                ldab    #J_LEFT
+hu_l0:          stab    h_ddir
                 ldaa    #DIG_LATCH
                 staa    h_dlat
                 bra     hu_l2
@@ -226,11 +236,7 @@ hu_keys:        tst     h_dlat          ; SPACE (now or just now): dig, left
                 beq     hu_k1           ; or right (or the way he faces)
                 tst     h_on            ; (standing on a floor)
                 bne     hu_nd1
-                ldab    joy             ; (A/S now, else with the press)
-                andb    #J_LEFT|J_RIGHT
-                bne     hu_k0
-                ldab    h_ddir
-hu_k0:
+                ldab    h_ddir          ; (the way, from the press)
                 ldaa    #-1
                 bitb    #J_LEFT
                 bne     hu_dig
@@ -269,10 +275,8 @@ hu_dg1:         stab    h_face
                 staa    h_dig
                 clr     h_dlat          ; (the press used)
 hu_r0:          rts
-hu_nodig:       ldab    joy             ; no dig there: SPACE held, he stands
-                bitb    #J_FIRE         ; (as ever); only remembered, it's
-                bne     hu_r0           ; forgotten and he moves on
-hu_nd1:         clr     h_dlat
+hu_nodig:                               ; no dig there: the press is
+hu_nd1:         clr     h_dlat          ; forgotten and he moves on
 hu_k1:          ldab    joy
                 bitb    #J_UP           ; UP: up a ladder
                 beq     hu_k2
