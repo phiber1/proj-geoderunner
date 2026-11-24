@@ -9,8 +9,8 @@ JG_A4           equ     1869            ; (phase steps: f * 65536 * 58 / 894886,
 JG_C5           equ     2223            ; the two-voice loop being 58 cycles)
 JG_Q            equ     3857            ; loops (15,429 a second): the first A
 JG_E            equ     1929            ; (0.25 s), the second (0.125 s), the
-JG_W            equ     30858           ; chord (2 s), the gap between notes
-JG_GAP          equ     463             ; (0.03 s)
+JG_W            equ     15429           ; chord (1 s: four beats of 0.25), the gap
+JG_GAP          equ     463             ; between notes (0.03 s)
 
 title:
                 jsr     gfx_cls
