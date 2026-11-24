@@ -14,7 +14,7 @@
 #                        (tools/levelgen.py; LEVELS="1 2 3 ..." to choose)
 #   make levels          build/LEVELS.DAT: the game's 150 levels (NLEVELS=...);
 #                        the game reads its levels from it
-#   make DEBUG=0         release build: no debug-port writes
+#   make DEBUG=0         release build: no debug-port writes, no N level jump
 #
 # On the SD card the game is GEODE.BIN (RUNM"GEODE").
 

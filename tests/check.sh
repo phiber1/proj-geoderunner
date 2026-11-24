@@ -200,6 +200,12 @@ for L in 60 100 150; do
     check "speed, level $L ($(echo "$out" | byte $NGUARD) guards): $loops game loops in 200 frames" "[ $loops -ge 196 ]"
 done
 
+# 12b. Test builds: N then three digits goes to that level (041: 41); a
+#      number out of range (200) is ignored.
+out=$(run 'type:N041' frames:120 mem:$LV,1 'type:N200' frames:60 mem:$LV,1)
+check "N with a level number: 041 -> $(echo "$out" | byte $LV 1), then 200 ignored ($(echo "$out" | byte $LV 2))" \
+      "[ $(echo "$out" | byte $LV 1) -eq 41 ] && [ $(echo "$out" | byte $LV 2) -eq 41 ]"
+
 # 13. BREAK gives up the level: a life lost, the level as it started (the
 #     geode collected is back).
 out=$(run mem:$GL,1 poke:$(cell 13 29),05 poke:$JF,04 frames:9 poke:$JF,00 frames:4 mem:$GL,1 break:3 frames:200 mem:$GL,1 mem:$LI,1 mem:$(cell 13 29),1)

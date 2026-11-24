@@ -24,7 +24,9 @@ upward, level after level, while the guards close in.  Built on
 Needs `asl` (the Macroassembler AS), a C compiler, cpp and Python 3 (with
 Pillow for the mock-ups).  Also: `make run-view` (the sprites),
 `make run-mockup_blue` (an early still mock-up of a level), `make sheet`
-(`build/levels.png`: a contact sheet of generated levels).
+(`build/levels.png`: a contact sheet of generated levels).  The default
+build is a test build: N followed by three digits (`N041`) jumps to that
+level; `make DEBUG=0` builds without it.
 
 Levels are generated: level N is always the same level, made by
 `tools/levelgen.py` (a Python prototype of the generator the game will

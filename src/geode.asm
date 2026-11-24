@@ -99,6 +99,11 @@ dc_m            rmb     2               ; ... its map byte,
 dc_t            rmb     2               ; ... its tile's bytes,
 dc_s            rmb     2               ; ... its place on the screen
 key_was         rmb     1
+gl_i            rmb     1               ; (debug) N: digits typed,
+gl_was          rmb     1               ; ... the digit key down last frame,
+gl_x            rmb     2               ; ... where the next one shows,
+gl_d            rmb     3               ; ... the digits
+kd_m            rmb     1               ; key_digit: the column strobe
 started         rmb     1               ; the hero has moved: the guards go
 brk_was         rmb     1               ; BREAK was down last frame
 joy_force       rmb     1               ; debug builds: nonzero = held keys (tests)
@@ -303,7 +308,7 @@ lp_f1:
                 anda    key_was
                 bne     lp_n1
                 jmp     loop
-lp_n1:          jmp     next_level
+lp_n1:          jmp     goto_level
                 else
                 jmp     loop
                 endif
@@ -370,8 +375,9 @@ next_level:
                 ldaa    level
                 inca
                 cmpa    #NLEVELS+1
-                bcc     congrats
-                staa    level
+                bcs     nx_f1
+                jmp     congrats
+nx_f1:          staa    level
                 jmp     new_level
 
 died:
@@ -392,6 +398,99 @@ died:
                 jsr     wait
                 jmp     new_game
 dd_f1:          jmp     new_level       ; the level again
+
+                if      DEBUG
+; goto_level (test builds): after N, three digits typed (041) go to that
+; level; shown in red where the level number is.  A number out of range
+; (000 to cancel) goes back to the game.
+goto_level:
+                clr     gl_i
+                ldaa    #$FF
+                staa    gl_was
+                ldaa    #COLOR_BYTE(CG_RED)
+                staa    txt_col
+                ldx     #TXT_AT(1,20)
+                ldaa    #'-'
+                jsr     txt_char2
+                ldaa    #'-'
+                jsr     txt_char2
+                ldaa    #'-'
+                jsr     txt_char2
+                ldx     #TXT_AT(1,20)
+                stx     gl_x
+gl_b1:          jsr     frame_wait
+                jsr     snd_frame
+                jsr     key_digit
+                cmpa    gl_was          ; (on the press)
+                beq     gl_b1
+                staa    gl_was
+                cmpa    #$FF
+                beq     gl_b1
+                ldab    gl_i
+                ldx     #gl_d
+                abx
+                staa    0,x
+                adda    #'0'
+                ldx     gl_x
+                jsr     txt_char2
+                stx     gl_x
+                inc     gl_i
+                ldaa    gl_i
+                cmpa    #3
+                bne     gl_b1
+                ldaa    gl_d            ; hundreds * 100 + tens * 10 + ones
+                ldab    #100
+                mul
+                std     ca_p
+                ldaa    gl_d+1
+                ldab    #10
+                mul
+                addd    ca_p
+                addb    gl_d+2
+                adca    #0
+                tsta                    ; 1 .. NLEVELS?
+                bne     gl_no
+                tstb
+                beq     gl_no
+                cmpb    #NLEVELS+1
+                bcc     gl_no
+                stab    level
+                jmp     new_level
+gl_no:          jsr     status_draw
+                jmp     loop
+
+; key_digit: A = the digit key held (0-9), $FF if none (0-7: columns 0-7
+; of row 4; 8, 9: columns 0, 1 of row 5)
+key_digit:
+                ldaa    #$FE
+                staa    kd_m
+                clrb
+kd_b1:          ldaa    kd_m
+                staa    P1DAT
+                ldaa    KBD
+                bita    #$10
+                beq     kd_lo
+                cmpb    #2
+                bcc     kd_f1
+                bita    #$20
+                beq     kd_hi
+kd_f1:          ldaa    kd_m
+                sec
+                rola
+                staa    kd_m
+                incb
+                cmpb    #8
+                bne     kd_b1
+                ldaa    #$FF
+                bra     kd_r
+kd_lo:          tba
+                bra     kd_r
+kd_hi:          tba
+                adda    #8
+kd_r:           ldab    #$FF
+                stab    P1DAT
+                rts
+                endif
 
 ; every level done: a congratulation (for now), then a new game
 congrats:
