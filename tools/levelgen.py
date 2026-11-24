@@ -653,6 +653,27 @@ def spread(rnd, pool, k, placed, start):
     return out
 
 
+def guard_times(g, fwd, back, p):
+    """for every cell: the frames between it and p for a guard, the shorter
+    way (to p or from it): walking 14, climbing 16, falling 14 a cell"""
+    from heapq import heappush, heappop
+    best = {}
+    for edges in (fwd, back):
+        dist, pq = {p: 0}, [(0, p)]
+        while pq:
+            t, (r, c) = heappop(pq)
+            if t > dist[(r, c)]:
+                continue
+            for q in edges.get((r, c), ()):
+                nt = t + (14 if q[0] == r else 16 if at(g, r, c) in 'HX' or at(g, q[0], q[1]) in 'HX' else 14)
+                if nt < dist.get(q, 1 << 30):
+                    dist[q] = nt
+                    heappush(pq, (nt, q))
+        for q, t in dist.items():
+            best[q] = min(best.get(q, 1 << 30), t)
+    return best
+
+
 def place(g, rnd, P, start, room=40, vaults=()):
     """the exit, the geodes, the guards: (score, level, (vaults, doubles))
     or None if poor (fewer than `room` places to stand)"""
@@ -706,11 +727,29 @@ def place(g, rnd, P, start, room=40, vaults=()):
            and not (p[1] == exit_at[1] and p[0] <= exit_at[0])]    # (not on the exit)
     rnd.shuffle(far)
     guards = []
-    for p in far:
-        if all(abs(p[1] - q[1]) > 2 or p[0] != q[0] for q in guards):
+    if P['guards'] >= 4:
+        # four: spread to the far ends of the level, never together, so
+        # they can't meet up and come down on him at once (owner: level
+        # 102).  Far by the way a guard goes (walking, climbing, falling at
+        # guard speed, either way between the two): each as far as can be
+        # from the nearest of the hero and the ones placed (ties: the
+        # shuffled order)
+        fwd, back = graph(g, dig=False)
+        near = guard_times(g, fwd, back, start)
+        for _ in range(P['guards']):
+            if not far:
+                break
+            p = max(far, key=lambda p: near.get(p, 99999))
             guards.append(p)
-        if len(guards) == P['guards']:
-            break
+            t = guard_times(g, fwd, back, p)
+            near = {q: min(near.get(q, 99999), t.get(q, 99999)) for q in set(near) | set(t)}
+            far = [q for q in far if q != p]
+    else:
+        for p in far:
+            if all(abs(p[1] - q[1]) > 2 or p[0] != q[0] for q in guards):
+                guards.append(p)
+            if len(guards) == P['guards']:
+                break
     if len(guards) < P['guards']:
         return None
     lv = [row[:] for row in g]
