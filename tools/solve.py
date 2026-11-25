@@ -284,11 +284,16 @@ def verify(n, pr, rows=None):
             'mcx32sd:' + os.path.join(prof.VMC10, 'roms', 'mcx32sd_flash.bin'), '8k', 'sd:' + sd,
             'frames:200', 'type:RUNM"GEODE"\n', 'frames:240', 'type: ', 'frames:60'] + pokes + [
             'poke:%04X,%04X' % (prof.sym('rp_pend'), buf), 'type:N%03d' % n,
-            'frames:%d' % (loops + 1200), 'mem:%04X,1' % prof.sym('lives')]   # (the load, the bonus count)
+            'frames:%d' % loops]
+    # (then the bonus count and the next level's load: a win shows as 4
+    # lives, which only finishing a level gives; looked at every 100 frames,
+    # as the script's last inputs may run on into the next level and lose
+    # a life there)
+    args += ['frames:100', 'mem:%04X,1' % prof.sym('lives')] * 12
     out = subprocess.run(args, capture_output=True, text=True).stdout
     shutil.rmtree(sd, ignore_errors=True)
     m = re.findall(r'^mem %04X: (\w+)' % prof.sym('lives'), out, re.M)
-    return bool(m) and int(m[-1], 16) == 4        # (3, and a life for the level)
+    return any(int(v, 16) == 4 for v in m)        # (3, and a life for the level)
 
 
 if __name__ == '__main__':
