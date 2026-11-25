@@ -21,6 +21,9 @@ TRIES = 12                       # (rerolls tried a level, at most)
 # a new layout must give way to the quicker searches: one only the widest
 # can do (an hour's search) is too hard for the players we have in mind
 SEARCHES = solve.TRIES[:2]
+# ... and with a player's reactions (frames he stands still before doing
+# anything new): a person must be able to do it, not only a machine
+REACT = 8
 # levels the owner has beaten and wants kept as they are, whatever the
 # solver makes of them (53: a row of holes on the bottom floor catches all
 # four guards, up to three times: a skill the level teaches; 149: its long
@@ -37,7 +40,7 @@ def one(n):
     for k in range(k0 + 1, k0 + 1 + TRIES):
         levelgen.REROLL[n] = k
         rows, style = levelgen.level(n)
-        joys, g = solve.solve_hard(rows, tries=SEARCHES)
+        joys, g = solve.solve_hard(rows, tries=SEARCHES, react=REACT)
         if joys is None:
             continue
         pr = solve.pairs(joys)

@@ -863,7 +863,9 @@ def candidate(n, seed):
 REROLL = {47: 1,       # (47: four guards camped the one way to the exit: the solver found no way)
           48: 1,       # (48: three guards closed on the start at once: no way)
           100: 3,      # (100: the first had a guard parked in a dead-end corner)
-          104: 1}      # (104: the solver found no way)
+          104: 1,      # (104: the solver found no way)
+          105: 1,      # (105, 121: none a player could do: with a
+          121: 2}      # player's reactions the solver found no way)
 
 
 # levels touched up by hand after they're made: (row, col, cell) changes
