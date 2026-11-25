@@ -88,6 +88,22 @@ class Game:
         self.loops = 0
         self.score = 0
 
+    def clone(self):
+        """a copy to play on (for searches)"""
+        g = Game.__new__(Game)
+        g.__dict__.update(self.__dict__)
+        g.map = [row[:] for row in self.map]
+        g.holes = [h[:] for h in self.holes]
+        gs = []
+        for gd in self.guards:
+            n = Guard.__new__(Guard)
+            for k in Guard.__slots__:
+                setattr(n, k, getattr(gd, k))
+            gs.append(n)
+        g.guards = gs
+        g.events = dict(self.events)
+        return g
+
     # ---------------------------------------------------------------- map
 
     def cell_at(self, r, c):
