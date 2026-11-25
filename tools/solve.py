@@ -116,7 +116,7 @@ class Solver:
                 break
         return used
 
-    def solve(self, max_steps=1200):
+    def solve(self, max_steps=1200, report=None):
         start = sim.Game(self.rows)
         beam = [(self.score(start), start, [])]
         seen = set()
@@ -143,6 +143,8 @@ class Solver:
                     if key not in nxt or nxt[key][0] < s2:
                         nxt[key] = (s2, h, path + used)
             if not nxt:
+                if report is not None:
+                    report.update(end='no states left', step=step, best=beam[0][1])
                 return None, None
             seen.update(nxt.keys())
             # the best, but not all alike: at most PER_CELL states with the
@@ -155,6 +157,8 @@ class Solver:
                     beam.append(t)
                     if len(beam) == self.width:
                         break
+        if report is not None:
+            report.update(end='out of steps', step=max_steps, best=beam[0][1])
         return None, None
 
 
