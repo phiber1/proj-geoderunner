@@ -25,8 +25,9 @@ SEARCHES = solve.TRIES[:2]
 # solver makes of them (53: a row of holes on the bottom floor catches all
 # four guards, up to three times: a skill the level teaches; 149: its long
 # cables and the pit in the middle, where a guard carrying a geode mustn't
-# be trapped)
-KEEP = {53, 149}
+# be trapped; 150: one guard buried on purpose, so he's back at the top when
+# the hero drops through the middle floor onto the other three)
+KEEP = {53, 149, 150}
 
 
 def one(n):
