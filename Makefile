@@ -23,13 +23,14 @@ VMC10   ?= $(HOME)/vmc10-linux
 EMU     ?= $(VMC10)/vmc10
 DEBUG   ?= 1
 PROFILE ?= 0
+TRACE   ?= 0
 CPPDEFS ?=
 CC      ?= cc
 CFLAGS  ?= -O2 -Wall -Wextra -std=c11
 
 LOAD     := 6000
 SEGMENTS := 0400-1FFF 6000-ADFF
-CPPFLAGS := -E -P -w -x assembler-with-cpp -I$(ENGINE)/engine -Ibuild -Isrc -DDEBUG=$(DEBUG) -DPROFILE=$(PROFILE)
+CPPFLAGS := -E -P -w -x assembler-with-cpp -I$(ENGINE)/engine -Ibuild -Isrc -DDEBUG=$(DEBUG) -DPROFILE=$(PROFILE) -DTRACE=$(TRACE)
 ENGSRC   := $(wildcard $(ENGINE)/engine/*.asm $(ENGINE)/engine/*.inc)
 SRCINC   := $(wildcard src/*.inc)
 SPRITES  := $(patsubst sprites/%.spr,build/%_spr.inc,$(wildcard sprites/*.spr))
@@ -58,8 +59,8 @@ build/%_spr.inc: sprites/%.spr build/spritec
 
 # cpp handles #include/#define, then ASL assembles; p2decb writes the DECB
 # binary, every byte checked to lie in the low or main segment
-# (build/flags-DEBUG-PROFILE: a build with other flags assembles again)
-FLAGS := build/flags-$(DEBUG)-$(PROFILE)
+# (build/flags-DEBUG-PROFILE-TRACE: a build with other flags assembles again)
+FLAGS := build/flags-$(DEBUG)-$(PROFILE)-$(TRACE)
 $(FLAGS): | build
 	rm -f build/flags-*
 	touch $@

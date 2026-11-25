@@ -39,6 +39,7 @@ LV_CELLS        equ     LV_COLS*LV_ROWS
 LV_RECORD       equ     LV_CELLS/2      ; bytes a level in the file
 LV_HEADER       equ     16
 MAX_GUARDS      equ     4
+RP_SIZE         equ     2048            ; test builds: the replay buffer
 D12_N           equ     208             ; draw.inc: div12's table (y + 11 < 208)
 
 ; actor records and the shadow buffer (draw.inc)
@@ -96,6 +97,9 @@ lv_map          rmb     LV_CELLS        ; ... and unpacked, a cell a byte
 shadow          rmb     (SH_ROWS+2*SH_MARGIN)*ROW_BYTES ; draw.inc: patches built here
 tmap            rmb     LV_CELLS        ; ... every cell's tile, as drawn
 waytab          rmb     LV_CELLS        ; guards.inc: the ways along each floor
+                if      DEBUG
+replay_buf      rmb     RP_SIZE         ; test builds: inputs to replay (tools)
+                endif
 d12tab          rmb     D12_N           ; draw.inc: y / 12
 
                 org     BSS
@@ -145,6 +149,10 @@ gu_n            rmb     1
 gu_think        rmb     1               ; ... a guard may still think this frame,
 gu_par          rmb     1               ; ... frame_count when they began
 fr_t0           rmb     2               ; FRC when the frame's work began
+rp_pend         rmb     2               ; test builds: a replay to start with
+rp_ptr          rmb     2               ; ... the next level; playing: where,
+rp_n            rmb     1               ; ... loops left of this entry,
+rp_j            rmb     1               ; ... its input
 fl_lim          rmb     2               ; frame_left: the limit
 gu_p            rmb     2
 gu_q            rmb     2
@@ -251,6 +259,9 @@ start:
                 jsr     gfx_init
                 clr     key_was
                 clr     joy_force
+                ldx     #0              ; (no replay)
+                stx     rp_pend
+                stx     rp_ptr
                 clr     dbg_safe
                 jsr     frame_init
                 jsr     div12_init
@@ -268,6 +279,15 @@ new_game:
                 clr     score+1
                 clr     score+2
 new_level:
+                if      DEBUG           ; (a replay armed: it starts with the
+                ldx     rp_pend         ; level)
+                beq     nl_f0
+                stx     rp_ptr
+                clr     rp_n
+                ldx     #0
+                stx     rp_pend
+nl_f0:
+                endif
                 jsr     lv_load         ; the level from the SD card
                 bcc     nl_f2
                 jmp     no_file
@@ -297,7 +317,26 @@ loop:
                 ldaa    joy_force
                 beq     dbg_f1
                 staa    joy
-dbg_f1:
+dbg_f1:         ldx     rp_ptr          ; replaying: this loop's input from
+                beq     dbg_f3          ; the script (pairs: loops, joy; a 0
+                tst     rp_n            ; ends it), one entry a game loop
+                bne     dbg_f2
+                ldaa    0,x
+                beq     dbg_end
+                staa    rp_n
+                ldaa    1,x
+                staa    rp_j
+                inx
+                inx
+                stx     rp_ptr
+dbg_f2:         dec     rp_n
+                ldaa    rp_j
+                staa    joy
+                bra     dbg_f3
+dbg_end:        ldx     #0
+                stx     rp_ptr
+                clr     joy
+dbg_f3:
                 endif
                 PROF    2
                 jsr     hero_update
@@ -340,7 +379,11 @@ lp_f0:          ldaa    #$FF-$04        ; BREAK (column 2, row 6: port 2's
                 anda    brk_was
                 beq     lp_f00
                 inc     h_dead
-lp_f00:          tst     h_dead          ; (or a hole filled on him)
+lp_f00:
+                if      TRACE           ; (make TRACE=1: this loop's state to
+                jsr     trace           ; the debug port, for tools/sim.py)
+                endif
+                tst     h_dead          ; (or a hole filled on him)
                 beq     lp_f01
                 jmp     died
 lp_f01:         ldaa    ex_state        ; out at the top: the level is done
@@ -576,6 +619,42 @@ congrats:
                 ldaa    #255
                 jsr     wait
                 jmp     to_title
+
+                if      TRACE
+; trace: $A5, the hero's x, y, h_dead, geodes left, the exit's state, then
+; each guard's x, y, state, carrying
+trace:
+                ldaa    #$A5
+                staa    DBGPORT
+                ldaa    h_x
+                staa    DBGPORT
+                ldaa    h_y
+                staa    DBGPORT
+                ldaa    h_dead
+                staa    DBGPORT
+                ldaa    g_left
+                staa    DBGPORT
+                ldaa    ex_state
+                staa    DBGPORT
+                ldx     #guards
+                ldab    nguard
+                beq     tr_r
+tr_b1:          ldaa    A_X,x
+                staa    DBGPORT
+                ldaa    A_Y,x
+                staa    DBGPORT
+                ldaa    G_ST,x
+                staa    DBGPORT
+                ldaa    G_CARRY,x
+                staa    DBGPORT
+                pshb
+                ldab    #GD_SIZE
+                abx
+                pulb
+                decb
+                bne     tr_b1
+tr_r:           rts
+                endif
 
 ; box_clear: X = the top left byte, A = rows, B = bytes across: fill
 ; with the background
