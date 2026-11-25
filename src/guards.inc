@@ -60,34 +60,15 @@ guards_update:
                 ldaa    nguard
                 bne     gup_f0
                 rts
-gup_f0:         staa    gu_n            ; first those whose redraw was put off
-                ldx     #guards         ; last frame: updated and drawn now,
-gup_a1:         ldaa    G_OWE,x         ; while there's time (never put off
-                beq     gup_a2          ; twice: he'd jump when drawn at last)
-                stx     gu_p
-                jsr     gup_full
-                ldx     gu_p
-                ldaa    #2              ; (done this frame)
-                staa    G_OWE,x
-gup_a2:         ldab    #GD_SIZE
-                abx
-                dec     gu_n
-                bne     gup_a1
-                ldaa    nguard          ; then the others
-                staa    gu_n
+; first every guard's move, always in the same order and never depending
+; on the time (the game plays the same whatever the frame's timing: so a
+; simulation of it, and a recorded solution, play out exactly)
+gup_f0:         staa    gu_n
                 ldx     #guards
 gup_b1:         stx     gu_p
-                ldaa    G_OWE,x
-                beq     gup_b2
-                clr     G_OWE,x         ; (done above)
-                bra     gup_f1
-gup_b2:         ldaa    gu_n            ; each guard is redrawn every other
-                eora    gu_par          ; frame, half of them on each (they
-                lsra                    ; move every frame)
-                bcc     gup_d
-                ldaa    G_ST,x          ; not redrawn this frame, in the middle
-                cmpa    #GS_TRAP        ; of a move: just the step, in place
-                beq     gup_s           ; (no copying, no pose: most frames)
+                ldaa    G_ST,x          ; in the middle of a move: the step,
+                cmpa    #GS_TRAP        ; in place (most frames)
+                beq     gup_s
                 ldaa    G_T,x
                 cmpa    #2
                 bcs     gup_s
@@ -95,37 +76,64 @@ gup_b2:         ldaa    gu_n            ; each guard is redrawn every other
                 jsr     gd_fast
                 PROF    $11
                 bra     gup_f1
-gup_s:          jsr     gs_in           ; not redrawn: the whole update
+gup_s:          jsr     gs_in           ; else the whole update
                 PROF    $10
                 jsr     guard_update
                 PROF    $11
                 ldx     gu_p
                 jsr     gs_out
-                bra     gup_f1
-gup_d:          ldd     #FRAME_CYCLES-GU_DRAW_MAX-GU_UPD_MAX ; time to draw
-                jsr     frame_left      ; him?  Else next frame, first
-                ldx     gu_p
-                bcs     gup_owe
-                jsr     gup_full
-                bra     gup_f1
-gup_owe:        ldaa    #1
-                staa    G_OWE,x
-                bra     gup_s
-gup_f1:
-                ldx     gu_p
+gup_f1:         ldx     gu_p
                 ldab    #GD_SIZE
                 abx
                 dec     gu_n
-                beq     gup_r
-                jmp     gup_b1
-gup_r:          rts
+                bne     gup_b1
+; then the redraws (drawing changes nothing in the game): first those put
+; off last frame (never twice: he'd jump when drawn at last), then each
+; guard every other frame, half of them on each, while there's time
+                ldaa    nguard
+                staa    gu_n
+                ldx     #guards
+gup_a1:         ldaa    G_OWE,x
+                beq     gup_a2
+                stx     gu_p
+                jsr     gup_draw
+                ldx     gu_p
+                ldaa    #2              ; (done this frame)
+                staa    G_OWE,x
+gup_a2:         ldab    #GD_SIZE
+                abx
+                dec     gu_n
+                bne     gup_a1
+                ldaa    nguard
+                staa    gu_n
+                ldx     #guards
+gup_c1:         stx     gu_p
+                ldaa    G_OWE,x
+                beq     gup_c2
+                clr     G_OWE,x         ; (drawn above)
+                bra     gup_c4
+gup_c2:         ldaa    gu_n
+                eora    gu_par
+                lsra
+                bcs     gup_c4
+                ldd     #FRAME_CYCLES-GU_DRAW_MAX ; time to draw him?  Else
+                jsr     frame_left      ; first thing next frame
+                ldx     gu_p
+                bcs     gup_c3
+                jsr     gup_draw
+                bra     gup_c4
+gup_c3:         ldaa    #1
+                staa    G_OWE,x
+gup_c4:         ldx     gu_p
+                ldab    #GD_SIZE
+                abx
+                dec     gu_n
+                bne     gup_c1
+                rts
 
-; gup_full: X = gu_p = a guard: updated, posed and redrawn
-gup_full:
+; gup_draw: X = gu_p = a guard: posed and redrawn
+gup_draw:
                 jsr     gs_in
-                PROF    $10
-                jsr     guard_update
-                PROF    $11
                 jsr     guard_pose
                 ldx     gu_p
                 jsr     gs_out
@@ -242,8 +250,6 @@ gd_r1:          rts
 ; start: carry set if it's later than that (the frame's work began at
 ; fr_t0; the rest of it, after the guards, is GU_TAIL)
 GU_DRAW_MAX     equ     5000            ; (a guard's redraw, at most,
-GU_THINK_MAX    equ     4400            ; ... a guard's thinking,
-GU_UPD_MAX      equ     600             ; ... a guard's update, not thinking,
 GU_TAIL         equ     900             ; ... the loop after the guards)
 frame_left:
                 subd    #GU_TAIL
@@ -412,12 +418,9 @@ gd_held:        tst     gs_carry        ; carried long enough: put it down
                 jsr     gd_redraw
                 clr     gs_carry
 ; tracking the hero
-gd_think:       tst     gu_think        ; another thought this frame, or no
-                beq     gd_th0          ; time left for one: wait a frame
-                ldd     #FRAME_CYCLES-GU_THINK_MAX ; (still, at this cell)
-                jsr     frame_left
-                bcc     gd_th1
-gd_th0:         rts
+gd_think:       tst     gu_think        ; another thought this frame: wait a
+                bne     gd_th1          ; frame (still, at this cell)
+                rts
 gd_th1:         clr     gu_think
                 jsr     gd_hrow         ; (a falling hero: where he'll land)
                 cmpa    gs_r
