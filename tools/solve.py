@@ -173,7 +173,7 @@ class Solver:
 
 
 # the searches tried in turn, until one finds a way: (width, per cell, brave)
-TRIES = [(200, 3, 1.0), (600, 6, 0.3)]
+TRIES = [(200, 3, 1.0), (600, 6, 0.3), (1500, 10, 0.15)]
 
 
 def solve_hard(rows, report=None):
