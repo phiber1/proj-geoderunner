@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """reroll.py: makes levels again from other random numbers until one is
 solved (tools/solve.py) and the solution wins on the real game; prints the
-REROLL entries for tools/levelgen.py.
+REROLL entries for tools/levelgen.py (by layout number: see its ORDER).
 
     python3 tools/reroll.py LEVEL ...
 
@@ -36,9 +36,10 @@ KEEP = {53, 149, 150}
 def one(n):
     progress.started(n)
     t = time.time()
-    k0 = levelgen.REROLL.get(n, 0)
+    m = levelgen.ORDER.get(n, n)        # (the layout in slot n: rerolled by its number)
+    k0 = levelgen.REROLL.get(m, 0)
     for k in range(k0 + 1, k0 + 1 + TRIES):
-        levelgen.REROLL[n] = k
+        levelgen.REROLL[m] = k
         rows, style = levelgen.level(n)
         joys, g = solve.solve_hard(rows, tries=SEARCHES, react=REACT)
         if joys is None:
@@ -47,7 +48,7 @@ def one(n):
         if solve.verify(n, pr, rows):
             with open(os.path.join(solve.ROOT, 'build', 'solutions', '%d.txt' % n), 'w') as f:
                 f.write(''.join('%d %d\n' % (a, b) for a, b in pr))
-            return n, k, style, len(joys), time.time() - t
+            return n, k, '%s; layout %d' % (style, m), len(joys), time.time() - t
     return n, None, None, 0, time.time() - t
 
 

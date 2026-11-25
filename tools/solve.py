@@ -67,8 +67,9 @@ def dist_to(grid, targets):
 
 
 class Solver:
-    def __init__(self, rows, width=200, per_cell=PER_CELL, brave=1.0, react=0):
+    def __init__(self, rows, width=200, per_cell=PER_CELL, brave=1.0, react=0, order=None):
         self.rows = rows
+        self.order = order              # (geodes to go after in this order: a plan)
         self.react = react              # (frames he stands still before doing
                                         # something new: a player's reaction)
         self.width = width
@@ -90,13 +91,17 @@ class Solver:
         self.states = 0                 # ... of all the states played out;
         self.jailed = 0                 # ... those with a guard in a prison,
         self.chance = 0                 # ... and those where one fell in by chance)
+        self.deaths = 0                 # (moves tried that got him caught)
 
     def score(self, g):
         """bigger is better"""
         here = (g.r, g.c)
         if g.g_left:
             ds = []
-            for (r, c) in g_geodes(g):
+            todo = g_geodes(g)
+            if self.order:              # (a plan: the next geode in it only)
+                todo = [p for p in self.order if p in todo][:1] or todo
+            for (r, c) in todo:
                 ds.append(self.gdist[(r, c)].get(here, 999) if (r, c) in self.gdist
                           else self.reach(g, (r, c)))
             # a geode a guard carries: go after him (trapped, he drops it
@@ -165,6 +170,7 @@ class Solver:
                             break
                     self.states += 1
                     if h.dead:
+                        self.deaths += 1        # (a move that got him caught)
                         continue
                     if self.prison:
                         if any(gd.carry and (gd.r, gd.c) in self.prison for gd in h.guards):

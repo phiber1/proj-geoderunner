@@ -8,7 +8,7 @@ carrying a geode ends up in it (the geode, and the level, lost: bad).
 The best that's solved, and wins on the real game, is printed as an
 EDITS entry for tools/levelgen.py.
 
-    python3 tools/trapfit.py LEVEL [REROLL]
+    python3 tools/trapfit.py LAYOUT [REROLL]      (a layout's number: levelgen.ORDER)
 
 Public domain (Unlicense)."""
 import os
@@ -24,9 +24,10 @@ NEAR = 4                        # (no geode this near the new pit's mouth, on it
 
 
 def base(n, k):
+    """(n: a layout's number, as REROLL and EDITS are kept)"""
     L.REROLL[n] = k
     L.EDITS.pop(n, None)
-    return [list(r) for r in L.level(n)[0]]
+    return [list(r) for r in L.make(n)[0]]
 
 
 def fill_old(g):

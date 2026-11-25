@@ -873,9 +873,35 @@ REROLL = {47: 1,       # (47: four guards camped the one way to the exit: the so
 EDITS = {}
 
 
-def level(n, want=4):
-    """level n: (15 strings of 32 cells, its style), the best of a few
-    candidates"""
+# the order the layouts are played in: slot: the number of the layout
+# put there (each layout is made, rerolled and touched up by its own
+# number).  Levels 41-148 sorted by how hard they press the hero
+# (tools/pressure.py), gentlest first: by chance they had no curve at all
+# (51, a late-game puzzle, came mid-game).  Word levels (on the tens), 53,
+# 149 and 150 (beaten by the owner) and 1-40 (played and tuned) as made.
+ORDER = {41: 61, 42: 77, 43: 92, 44: 131, 45: 94, 46: 108, 47: 104, 48: 128,
+         49: 146, 51: 79, 52: 93, 54: 86, 55: 52, 56: 126, 57: 148, 58: 76,
+         59: 41, 61: 87, 62: 54, 63: 121, 64: 129, 65: 69, 66: 122, 67: 143,
+         68: 127, 69: 88, 71: 133, 72: 106, 73: 96, 74: 99, 75: 118, 76: 124,
+         77: 98, 78: 132, 79: 42, 81: 137, 82: 125, 83: 135, 84: 49, 85: 63,
+         86: 82, 87: 115, 88: 119, 89: 83, 91: 73, 92: 144, 93: 59, 94: 66,
+         95: 113, 96: 84, 97: 123, 98: 134, 99: 147, 101: 105, 102: 45,
+         103: 91, 104: 139, 105: 85, 106: 78, 107: 142, 108: 109, 109: 112,
+         111: 56, 112: 47, 113: 68, 114: 101, 115: 102, 116: 103, 117: 145,
+         118: 89, 119: 65, 121: 107, 122: 111, 123: 114, 124: 71, 125: 136,
+         126: 57, 127: 55, 128: 141, 129: 44, 131: 67, 132: 62, 133: 48,
+         134: 138, 135: 46, 136: 97, 137: 64, 138: 74, 139: 81, 141: 72,
+         142: 75, 143: 117, 144: 43, 145: 95, 146: 58, 147: 51, 148: 116}
+
+
+def level(n):
+    """the level in slot n: (15 strings of 32 cells, its style)"""
+    return make(ORDER.get(n, n))
+
+
+def make(n, want=4):
+    """the layout numbered n: (15 strings of 32 cells, its style), the
+    best of a few candidates"""
     best = None
     vaults = params(n)['dig_geodes'] if style_for(n) != 'word' else 0
     for attempt in range(80):
