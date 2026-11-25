@@ -36,6 +36,11 @@ ACTIONS = [('L', [L]), ('R', [R]), ('U', [J.J_UP]), ('D', [J.J_DOWN]),
            ('ddr', [R, F | R, L, F | R, R, F | R, R]),
            # a long wait (for a guard to come, to climb out, to drop a geode)
            ('W', [0] * 10)]
+# a row of holes for guards coming at him: dig toward them, step back, dig
+# again (each hole a cell nearer where he started), 2 to 4 holes
+for k in (2, 3, 4):
+    ACTIONS.append(('row%dl' % k, [F | L] + [R, F | L] * (k - 1)))
+    ACTIONS.append(('row%dr' % k, [F | R] + [L, F | R] * (k - 1)))
 WAIT = 6                         # (frames a wait lasts)
 MAXRUN = 40                      # (frames an action may take, at most)
 PER_CELL = 3                     # (beam states with the hero on one cell, at most)
@@ -62,8 +67,10 @@ def dist_to(grid, targets):
 
 
 class Solver:
-    def __init__(self, rows, width=200, per_cell=PER_CELL, brave=1.0):
+    def __init__(self, rows, width=200, per_cell=PER_CELL, brave=1.0, react=0):
         self.rows = rows
+        self.react = react              # (frames he stands still before doing
+                                        # something new: a player's reaction)
         self.width = width
         self.per_cell = per_cell
         self.brave = brave              # (danger's weight: less, bolder)
@@ -131,15 +138,28 @@ class Solver:
 
     def solve(self, max_steps=1200, report=None):
         start = sim.Game(self.rows)
-        beam = [(self.score(start), start, [])]
+        beam = [(self.score(start), start, [], None)]
         seen = set()
         for step in range(max_steps):
             nxt = {}
-            for sc, g, path in beam:
+            for sc, g, path, last in beam:
                 for name, moves in ACTIONS:
                     h = g.clone()
                     used = []
+                    prev = last
                     for joy in moves:
+                        # (a player doesn't change keys in no time: still a
+                        # moment first; holding the same keys costs nothing)
+                        if self.react and joy and prev is not None and joy != prev:
+                            for i in range(self.react):
+                                h.step(0)
+                                used.append(0)
+                                if h.dead:
+                                    break
+                            if h.dead:
+                                break
+                        if joy:
+                            prev = joy
                         used += self.play(h, joy)
                         if h.dead or h.done:
                             break
@@ -168,7 +188,7 @@ class Solver:
                     if s2 is None:
                         continue
                     if key not in nxt or nxt[key][0] < s2:
-                        nxt[key] = (s2, h, path + used)
+                        nxt[key] = (s2, h, path + used, prev)
             if not nxt:
                 if report is not None:
                     report.update(end='no states left', step=step, best=beam[0][1])
@@ -193,10 +213,10 @@ class Solver:
 TRIES = [(200, 3, 1.0), (600, 6, 0.3), (1500, 10, 0.15)]
 
 
-def solve_hard(rows, report=None, tries=TRIES):
+def solve_hard(rows, report=None, tries=TRIES, react=0):
     """the plain search first, then wider and bolder ones"""
     for w, pc, b in tries:
-        joys, g = Solver(rows, w, pc, b).solve(report=report)
+        joys, g = Solver(rows, w, pc, b, react).solve(report=report)
         if joys is not None:
             return joys, g
     return None, None

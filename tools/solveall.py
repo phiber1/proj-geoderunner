@@ -2,7 +2,11 @@
 """solveall.py: tools/solve.py on every level (or those named), each
 solution saved (build/solutions/N.txt) and replayed on the real game.
 
-    python3 tools/solveall.py [LEVEL ...]
+    python3 tools/solveall.py [--react FRAMES] [LEVEL ...]
+
+--react: played with a player's reactions (he stands still FRAMES frames
+before doing anything new), and only the quicker searches: what a person
+can do.
 
 Prints a line a level and a summary; shows its progress (and keeps
 build/progress.txt: tools/progress.py watches it from another terminal).  Public domain (Unlicense)."""
@@ -17,21 +21,33 @@ import solve                    # noqa: E402
 import progress                 # noqa: E402
 
 
+REACT = 0
+
+
 def one(n):
     progress.started(n)
     t = time.time()
-    joys, g = solve.solve_hard(solve.level_rows(n))
+    if REACT:
+        joys, g = solve.solve_hard(solve.level_rows(n), tries=solve.TRIES[:2], react=REACT)
+    else:
+        joys, g = solve.solve_hard(solve.level_rows(n))
     if joys is None:
         return n, None, 0, time.time() - t, False
     pr = solve.pairs(joys)
-    with open(os.path.join(solve.ROOT, 'build', 'solutions', '%d.txt' % n), 'w') as f:
+    folder = os.path.join(solve.ROOT, 'build', 'solutions-react%d' % REACT if REACT else 'solutions')
+    os.makedirs(folder, exist_ok=True)
+    with open(os.path.join(folder, '%d.txt' % n), 'w') as f:
         f.write(''.join('%d %d\n' % (k, j) for k, j in pr))
     return n, len(joys), len(pr), time.time() - t, solve.verify(n, pr)
 
 
 if __name__ == '__main__':
     os.makedirs(os.path.join(solve.ROOT, 'build', 'solutions'), exist_ok=True)
-    levels = [int(a) for a in sys.argv[1:]] or list(range(1, 151))
+    args = sys.argv[1:]
+    if args[:1] == ['--react']:
+        REACT = int(args[1])
+        args = args[2:]
+    levels = [int(a) for a in args] or list(range(1, 151))
     won, unsolved, failed = [], [], []
     pg = progress.Progress(len(levels))
     with Pool(20, initializer=progress.init, initargs=(pg.running,)) as p:
