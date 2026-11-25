@@ -39,7 +39,8 @@ LV_CELLS        equ     LV_COLS*LV_ROWS
 LV_RECORD       equ     LV_CELLS/2      ; bytes a level in the file
 LV_HEADER       equ     16
 MAX_GUARDS      equ     4
-RP_SIZE         equ     2048            ; test builds: the replay buffer
+RP_SIZE         equ     2048            ; test builds: the replay buffer,
+RP_SEED         equ     $ACE1           ; ... the respawn seed a replay starts with
 D12_N           equ     208             ; draw.inc: div12's table (y + 11 < 208)
 
 ; actor records and the shadow buffer (draw.inc)
@@ -280,13 +281,23 @@ new_game:
                 clr     score+2
 new_level:
                 if      DEBUG           ; (a replay armed: it starts with the
-                ldx     rp_pend         ; level)
+                ldx     rp_pend         ; level, and respawns from a known seed)
                 beq     nl_f0
                 stx     rp_ptr
                 clr     rp_n
                 ldx     #0
                 stx     rp_pend
+                ldd     #RP_SEED
+                std     seed
 nl_f0:
+                endif
+                if      TRACE           ; (a level starts: $5A $A5 $5A $C3, for
+                ldd     #$5AA5          ; tools/simcheck.py)
+                staa    DBGPORT
+                stab    DBGPORT
+                ldd     #$5AC3
+                staa    DBGPORT
+                stab    DBGPORT
                 endif
                 jsr     lv_load         ; the level from the SD card
                 bcc     nl_f2

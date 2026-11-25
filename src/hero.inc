@@ -95,6 +95,7 @@ hero_init:
                 clr     h_on
                 clr     h_dig
                 clr     h_dlat
+                clr     h_spw           ; (no press carried over)
                 clr     h_dead
                 jmp     hero_pose
 

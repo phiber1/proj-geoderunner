@@ -115,11 +115,18 @@ run-%: build/%.bin
 	$(EMU) --mcx32sd --8k --sd $(SD) --type 'RUNM"$(shell echo $* | tr a-z A-Z)"\n'
 
 # Headless checks (needs the emulator's harness and ROMs: VMC10=...)
+# the Python simulation (tools/sim.py) against the real game: random input
+# replayed on a TRACE build, compared loop by loop (then the test build again)
+simcheck: build/LEVELS.DAT
+	$(MAKE) --no-print-directory TRACE=1 build/geode.bin
+	VMC10=$(VMC10) python3 tools/simcheck.py
+	$(MAKE) --no-print-directory build/geode.bin
+
 check: build/geode.bin build/LEVELS.DAT
 	VMC10=$(VMC10) sh tests/check.sh
 
 clean:
 	rm -rf build
 
-.PHONY: all check clean run sheet levels FORCE
+.PHONY: simcheck all check clean run sheet levels FORCE
 .PRECIOUS: build/%.s build/%.p build/%_spr.inc build/%.bin
