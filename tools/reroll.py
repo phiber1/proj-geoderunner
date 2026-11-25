@@ -19,8 +19,12 @@ import progress                 # noqa: E402
 
 TRIES = 12                       # (rerolls tried a level, at most)
 # a new layout must give way to the quicker searches: one only the widest
-# can do (an hour's search) is too hard for a player
+# can do (an hour's search) is too hard for the players we have in mind
 SEARCHES = solve.TRIES[:2]
+# levels the owner has beaten and wants kept as they are, whatever the
+# solver makes of them (53: a row of holes on the bottom floor catches all
+# four guards, up to three times: a skill the level teaches)
+KEEP = {53}
 
 
 def one(n):
@@ -44,6 +48,11 @@ def one(n):
 if __name__ == '__main__':
     os.makedirs(os.path.join(solve.ROOT, 'build', 'solutions'), exist_ok=True)
     levels = [int(a) for a in sys.argv[1:]]
+    for n in sorted(set(levels) & KEEP):
+        print('level %3d: kept as it is (the owner has beaten it): not made again' % n)
+    levels = [n for n in levels if n not in KEEP]
+    if not levels:
+        sys.exit(0)
     pg = progress.Progress(len(levels))
     with Pool(min(20, len(levels)), initializer=progress.init, initargs=(pg.running,)) as p:
         for n, k, style, loops, secs in p.imap_unordered(one, levels):
