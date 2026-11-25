@@ -331,15 +331,27 @@ loop:
                 beq     dbg_f1
                 staa    joy
 dbg_f1:         ldx     rp_ptr          ; replaying: this loop's input from
-                beq     dbg_f3          ; the script (pairs: loops, joy; a 0
-                tst     rp_n            ; ends it), one entry a game loop
-                bne     dbg_f2
+                beq     dbg_f3          ; the script (runs: loops, joy; or a
+                tst     rp_n            ; byte %1nnjjjjj, n+1 loops; a 0
+                bne     dbg_f2          ; ends it), one entry a game loop
                 ldaa    0,x
                 beq     dbg_end
+                bmi     dbg_f4
                 staa    rp_n
                 ldaa    1,x
-                staa    rp_j
                 inx
+                bra     dbg_f5
+dbg_f4:         tab                     ; (the short form)
+                lsrb
+                lsrb
+                lsrb
+                lsrb
+                lsrb
+                andb    #3
+                incb
+                stab    rp_n
+                anda    #$1F
+dbg_f5:         staa    rp_j
                 inx
                 stx     rp_ptr
 dbg_f2:         dec     rp_n

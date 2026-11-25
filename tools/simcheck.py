@@ -43,7 +43,7 @@ def emulate(level, scr, frames, safe=False):
     for a, b in (('geode.bin', 'GEODE.BIN'), ('LEVELS.DAT', 'LEVELS.DAT')):
         open(os.path.join(sd, b), 'wb').write(open(os.path.join(ROOT, 'build', a), 'rb').read())
     buf = prof.sym('replay_buf')
-    data = ''.join('%02X%02X' % (k, j) for k, j in scr) + '00'
+    data = sim.replay_hex(scr)
     pokes = ['poke:%04X,%s' % (buf + i // 2, data[i:i + 64]) for i in range(0, len(data), 64)]
     args = [os.path.join(prof.VMC10, 'build', 'headless'), os.path.join(prof.VMC10, 'roms', 'MC10.BIN'),
             'mcx32sd:' + os.path.join(prof.VMC10, 'roms', 'mcx32sd_flash.bin'), '8k', 'sd:' + sd,

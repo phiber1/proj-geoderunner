@@ -40,6 +40,21 @@ def guard_solid(a):
     return is_solid(a) or a in (C_FILL1, C_FILL2)
 
 
+
+def replay_hex(pairs):
+    """runs of input (loops, joy) as a test build's replay script (hex): a
+    run of 1-4 loops is one byte (1, loops - 1 in two bits, joy in five),
+    a longer one two (loops up to 127, joy); a 0 ends it"""
+    out = []
+    for k, j in pairs:
+        while k > 4:
+            n = min(k, 127)
+            out += [n, j]
+            k -= n
+        if k:
+            out.append(0x80 | (k - 1) << 5 | j)
+    return ''.join('%02X' % b for b in out) + '00'
+
 class Guard:
     __slots__ = ('x', 'y', 'r', 'c', 't', 'dir', 'face', 'on', 'st', 'tt',
                  'carry', 'ct', 'out', 'acc')

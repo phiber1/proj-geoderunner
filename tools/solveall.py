@@ -17,7 +17,7 @@ import solve                    # noqa: E402
 
 def one(n):
     t = time.time()
-    joys, g = solve.Solver(solve.level_rows(n)).solve()
+    joys, g = solve.solve_hard(solve.level_rows(n))
     if joys is None:
         return n, None, 0, time.time() - t, False
     pr = solve.pairs(joys)
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     os.makedirs(os.path.join(solve.ROOT, 'build', 'solutions'), exist_ok=True)
     levels = [int(a) for a in sys.argv[1:]] or list(range(1, 151))
     won, unsolved, failed = [], [], []
-    with Pool(8) as p:
+    with Pool(20) as p:
         for n, loops, npr, secs, ok in p.imap_unordered(one, levels):
             if loops is None:
                 unsolved.append(n)

@@ -34,6 +34,6 @@ def diag(n):
 
 
 if __name__ == '__main__':
-    with Pool(8) as p:
+    with Pool(20) as p:
         for n, msg in p.imap_unordered(diag, [int(a) for a in sys.argv[1:]]):
             print('level %3d: %s' % (n, msg), flush=True)

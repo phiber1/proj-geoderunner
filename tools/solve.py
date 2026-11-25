@@ -33,7 +33,9 @@ ACTIONS = [('L', [L]), ('R', [R]), ('U', [J.J_UP]), ('D', [J.J_DOWN]),
            # a double dig: over one, dig the far hole, back, dig the near
            # one, drop into it, dig under the far one, drop through it
            ('ddl', [L, F | L, R, F | L, L, F | L, L]),
-           ('ddr', [R, F | R, L, F | R, R, F | R, R])]
+           ('ddr', [R, F | R, L, F | R, R, F | R, R]),
+           # a long wait (for a guard to come, to climb out, to drop a geode)
+           ('W', [0] * 10)]
 WAIT = 6                         # (frames a wait lasts)
 MAXRUN = 40                      # (frames an action may take, at most)
 PER_CELL = 3                     # (beam states with the hero on one cell, at most)
@@ -60,9 +62,11 @@ def dist_to(grid, targets):
 
 
 class Solver:
-    def __init__(self, rows, width=200):
+    def __init__(self, rows, width=200, per_cell=PER_CELL, brave=1.0):
         self.rows = rows
         self.width = width
+        self.per_cell = per_cell
+        self.brave = brave              # (danger's weight: less, bolder)
         g0 = [list(r.replace('T', '.').replace('E', '.').replace('P', '.').replace('X', '.')) for r in rows]
         self.grid = g0
         self.geodes = [(r, c) for r in range(15) for c in range(32) if rows[r][c] == 'T']
@@ -89,9 +93,13 @@ class Solver:
                 if gd.carry:
                     ds.append(abs(gd.c - g.c) + 3 * abs(gd.r - g.r) + 4)
             d = min(ds, default=999)
-            return (len(self.geodes) - g.g_left) * 1000 - d * 10 - g.loops * 0.01 - danger(g)
+            if d >= 999:
+                return None             # (nowhere to go from here: stuck)
+            return (len(self.geodes) - g.g_left) * 1000 - d * 10 - g.loops * 0.01 - danger(g) * self.brave
         d = self.exit_dist.get(here, 999)
-        return 100000 - d * 10 - g.loops * 0.01 - danger(g)
+        if d >= 999:
+            return None
+        return 100000 - d * 10 - g.loops * 0.01 - danger(g) * self.brave
 
     def reach(self, g, p):
         """distance to a geode not where the level put it (one a guard put
@@ -140,6 +148,8 @@ class Solver:
                     if key in seen:
                         continue
                     s2 = self.score(h)
+                    if s2 is None:
+                        continue
                     if key not in nxt or nxt[key][0] < s2:
                         nxt[key] = (s2, h, path + used)
             if not nxt:
@@ -152,7 +162,7 @@ class Solver:
             beam, per = [], {}
             for t in sorted(nxt.values(), key=lambda t: -t[0]):
                 k = (t[1].r, t[1].c, t[1].g_left)
-                if per.get(k, 0) < PER_CELL:
+                if per.get(k, 0) < self.per_cell:
                     per[k] = per.get(k, 0) + 1
                     beam.append(t)
                     if len(beam) == self.width:
@@ -160,6 +170,19 @@ class Solver:
         if report is not None:
             report.update(end='out of steps', step=max_steps, best=beam[0][1])
         return None, None
+
+
+# the searches tried in turn, until one finds a way: (width, per cell, brave)
+TRIES = [(200, 3, 1.0), (600, 6, 0.3)]
+
+
+def solve_hard(rows, report=None):
+    """the plain search first, then wider and bolder ones"""
+    for w, pc, b in TRIES:
+        joys, g = Solver(rows, w, pc, b).solve(report=report)
+        if joys is not None:
+            return joys, g
+    return None, None
 
 
 def danger(g):
@@ -200,7 +223,7 @@ def verify(n, pr):
     for a, b in (('geode.bin', 'GEODE.BIN'), ('LEVELS.DAT', 'LEVELS.DAT')):
         shutil.copy(os.path.join(ROOT, 'build', a), os.path.join(sd, b))
     buf = prof.sym('replay_buf')
-    data = ''.join('%02X%02X' % (k, j) for k, j in pr) + '00'
+    data = sim.replay_hex(pr)
     if len(data) // 2 > 2048:                      # (RP_SIZE)
         return False
     pokes = ['poke:%04X,%s' % (buf + i // 2, data[i:i + 64]) for i in range(0, len(data), 64)]
@@ -223,7 +246,7 @@ if __name__ == '__main__':
     for a in sys.argv[1:]:
         n = int(a)
         t = time.time()
-        joys, g = Solver(level_rows(n)).solve()
+        joys, g = solve_hard(level_rows(n))
         if joys is None:
             print('level %d: no solution found (%.0f s)' % (n, time.time() - t))
             continue
