@@ -536,6 +536,41 @@ def break_stone(g):
                 x += 1
 
 
+STONE_MAX = 0.25    # at most this share of the floor walked on is stone
+
+
+def soften(g):
+    """at the end, stone eased into brick (so nothing else about the level
+    changes: both are solid to walk on): stone walls (stone on stone)
+    become brick, and while more than STONE_MAX of the floor walked on is
+    stone, its longest stretch becomes brick (owner: level 103's solid
+    blocks and stone floors left too little to dig, four guards about)"""
+    walls = [(r, x) for r in range(ROWS) for x in range(COLS) if g[r][x] == 'S'
+             and (at(g, r - 1, x) == 'S' or (r + 1 < ROWS and g[r + 1][x] == 'S'))]
+    for r, x in walls:
+        g[r][x] = 'B'
+    while True:
+        floor = [(r, x) for r in range(1, ROWS) for x in range(COLS)
+                 if g[r][x] in SOLID and g[r - 1][x] not in SOLID]
+        stone = [p for p in floor if g[p[0]][p[1]] == 'S']
+        if not floor or len(stone) <= STONE_MAX * len(floor):
+            return
+        runs = []                           # stone stretches under walkways
+        for r in range(1, ROWS):
+            x = 0
+            while x < COLS:
+                if g[r][x] == 'S' and g[r - 1][x] not in SOLID:
+                    x0 = x
+                    while x < COLS and g[r][x] == 'S' and g[r - 1][x] not in SOLID:
+                        x += 1
+                    runs.append((x - x0, r, x0))
+                else:
+                    x += 1
+        n, r, x0 = max(runs)                # (the longest; ties: the lowest, rightmost)
+        for x in range(x0, x0 + n):
+            g[r][x] = 'B'
+
+
 def add_vaults(g, rnd, P):
     """vaults: sealed brick boxes under a floor, a geode inside, dug into from
     above (through one brick, or for a double, two: dig two holes side by
@@ -811,6 +846,7 @@ def candidate(n, seed):
                   skip=keep if vaults else ()) and style != 'word':
         return None
     break_stone(g)                  # (again: the repair's ladders change the walkways)
+    soften(g)
     got = place(g, rnd, P, start, room=20 if style == 'word' else 40, vaults=vaults)
     if not got:
         return None
@@ -940,6 +976,12 @@ def fairness(lv):
             if run > STONE_RUN:
                 wrong.append('stone floor at %d,%d' % (r, x))
                 break
+    floor = [(r, x) for r in range(1, ROWS) for x in range(COLS)
+             if g[r][x] in SOLID and g[r - 1][x] not in SOLID]
+    if floor and sum(1 for r, x in floor if g[r][x] == 'S') > STONE_MAX * len(floor):
+        wrong.append('too much stone floor')
+    if any(g[r][x] == 'S' and g[r + 1][x] == 'S' for r in range(ROWS - 1) for x in range(COLS)):
+        wrong.append('a stone wall')
     walk = reach(g, start, dig=False)
     for p in cells:
         if lv[p[0]][p[1]] == 'T' and p in walk and _run_out(g, p, off) > FAIR_GEODE:
