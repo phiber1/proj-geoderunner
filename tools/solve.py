@@ -176,9 +176,9 @@ class Solver:
 TRIES = [(200, 3, 1.0), (600, 6, 0.3), (1500, 10, 0.15)]
 
 
-def solve_hard(rows, report=None):
+def solve_hard(rows, report=None, tries=TRIES):
     """the plain search first, then wider and bolder ones"""
-    for w, pc, b in TRIES:
+    for w, pc, b in tries:
         joys, g = Solver(rows, w, pc, b).solve(report=report)
         if joys is not None:
             return joys, g

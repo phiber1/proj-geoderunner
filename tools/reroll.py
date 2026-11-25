@@ -18,6 +18,9 @@ import levelgen                 # noqa: E402
 import progress                 # noqa: E402
 
 TRIES = 12                       # (rerolls tried a level, at most)
+# a new layout must give way to the quicker searches: one only the widest
+# can do (an hour's search) is too hard for a player
+SEARCHES = solve.TRIES[:2]
 
 
 def one(n):
@@ -27,7 +30,7 @@ def one(n):
     for k in range(k0 + 1, k0 + 1 + TRIES):
         levelgen.REROLL[n] = k
         rows, style = levelgen.level(n)
-        joys, g = solve.solve_hard(rows)
+        joys, g = solve.solve_hard(rows, tries=SEARCHES)
         if joys is None:
             continue
         pr = solve.pairs(joys)
