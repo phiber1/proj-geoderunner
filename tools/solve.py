@@ -197,7 +197,8 @@ def verify(n, pr):
         shutil.copy(os.path.join(ROOT, 'build', a), os.path.join(sd, b))
     buf = prof.sym('replay_buf')
     data = ''.join('%02X%02X' % (k, j) for k, j in pr) + '00'
-    assert len(data) // 2 <= 2048, 'solution too long for the replay buffer'
+    if len(data) // 2 > 2048:                      # (RP_SIZE)
+        return False
     pokes = ['poke:%04X,%s' % (buf + i // 2, data[i:i + 64]) for i in range(0, len(data), 64)]
     loops = sum(k for k, j in pr)
     lv = prof.sym('level')

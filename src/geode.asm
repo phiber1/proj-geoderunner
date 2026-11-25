@@ -39,7 +39,9 @@ LV_CELLS        equ     LV_COLS*LV_ROWS
 LV_RECORD       equ     LV_CELLS/2      ; bytes a level in the file
 LV_HEADER       equ     16
 MAX_GUARDS      equ     4
-RP_SIZE         equ     2048            ; test builds: the replay buffer,
+RP_SIZE         equ     2048            ; test builds: the replay buffer (the
+                                        ; MCX32-SD BIOS uses the top of low memory:
+                                        ; 3072 there broke replays),
 RP_SEED         equ     $ACE1           ; ... the respawn seed a replay starts with
 D12_N           equ     208             ; draw.inc: div12's table (y + 11 < 208)
 
