@@ -863,8 +863,12 @@ def candidate(n, seed):
 REROLL = {47: 1,       # (47: four guards camped the one way to the exit: the solver found no way)
           48: 1,       # (48: three guards closed on the start at once: no way)
           100: 3,      # (100: the first had a guard parked in a dead-end corner)
-          104: 1,      # (104: the solver found no way)
-          149: 1}      # (149: nor here, in over an hour)
+          104: 1}      # (104: the solver found no way)
+
+
+# levels touched up by hand after they're made: (row, col, cell) changes
+# (tools/trapfit.py moves a guard prison off the patrol path)
+EDITS = {}
 
 
 def level(n, want=4):
@@ -881,7 +885,10 @@ def level(n, want=4):
             break
     if not best:
         raise RuntimeError('no level %d' % n)
-    return [''.join(row) for row in best[1]], best[2]
+    rows = [list(row) for row in best[1]]
+    for r, c, ch in EDITS.get(n, ()):
+        rows[r][c] = ch
+    return [''.join(row) for row in rows], best[2] + (', touched up' if n in EDITS else '')
 
 
 def sheet(out, numbers):

@@ -23,8 +23,10 @@ TRIES = 12                       # (rerolls tried a level, at most)
 SEARCHES = solve.TRIES[:2]
 # levels the owner has beaten and wants kept as they are, whatever the
 # solver makes of them (53: a row of holes on the bottom floor catches all
-# four guards, up to three times: a skill the level teaches)
-KEEP = {53}
+# four guards, up to three times: a skill the level teaches; 149: its long
+# cables and the pit in the middle, where a guard carrying a geode mustn't
+# be trapped)
+KEEP = {53, 149}
 
 
 def one(n):

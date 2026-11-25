@@ -78,6 +78,11 @@ class Solver:
         self.exit_dist = dist_to(ge, [(0, col)])
         self.gdist = {p: dist_to(g0, [p]) for p in self.geodes}
         self.extra = {}
+        self.prison = prisons(rows)
+        self.locked = 0                 # (states lost to a geode locked in a prison,
+        self.states = 0                 # ... of all the states played out;
+        self.jailed = 0                 # ... those with a guard in a prison,
+        self.chance = 0                 # ... and those where one fell in by chance)
 
     def score(self, g):
         """bigger is better"""
@@ -138,8 +143,20 @@ class Solver:
                         used += self.play(h, joy)
                         if h.dead or h.done:
                             break
+                    self.states += 1
                     if h.dead:
                         continue
+                    if self.prison:
+                        if any(gd.carry and (gd.r, gd.c) in self.prison for gd in h.guards):
+                            self.locked += 1    # (a geode gone for good: lost)
+                            continue
+                        if any((gd.r, gd.c) in self.prison for gd in h.guards):
+                            self.jailed += 1    # (a guard put away;
+                            # ... by chance: the hero not near the pit)
+                            if (sum((gd.r, gd.c) in self.prison for gd in h.guards)
+                                    > sum((gd.r, gd.c) in self.prison for gd in g.guards)
+                                    and min(abs(h.r - r) * 3 + abs(h.c - c) for r, c in self.prison) > 8):
+                                self.chance += 1
                     if h.done:
                         return path + used, h
                     key = (h.r, h.c, h.g_left, h.ex_state,
@@ -183,6 +200,15 @@ def solve_hard(rows, report=None, tries=TRIES):
         if joys is not None:
             return joys, g
     return None, None
+
+
+def prisons(rows):
+    """the cells a guard can get to but never leave (no ladder out: he
+    can't dig): a geode he carries in there is lost, and the level with it"""
+    g = [list(r.replace('T', '.').replace('E', '.').replace('P', '.').replace('X', '.')) for r in rows]
+    start = [(r, c) for r in range(15) for c in range(32) if rows[r][c] == 'P'][0]
+    out, both = levelgen.two_way(g, start)
+    return out - both
 
 
 def danger(g):
