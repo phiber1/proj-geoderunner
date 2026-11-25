@@ -860,7 +860,8 @@ def candidate(n, seed):
 
 # levels made again from other random numbers, the owner having found the
 # first ones unfair (level: a number mixed into its seeds)
-REROLL = {100: 3}     # (100: the first had a guard parked in a dead-end corner)
+REROLL = {48: 1,       # (48: three guards closed on the start at once: the solver found no way)
+          100: 3}     # (100: the first had a guard parked in a dead-end corner)
 
 
 def level(n, want=4):

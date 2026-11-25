@@ -211,9 +211,10 @@ def pairs(joys):
     return out
 
 
-def verify(n, pr):
+def verify(n, pr, rows=None):
     """the solution played on the real game (the VMC10 emulator, a test
-    build replaying it): True if the game goes on to the next level"""
+    build replaying it): True if the game goes on to the next level (with
+    rows, on that level in place of the file's level n)"""
     import re
     import shutil
     import subprocess
@@ -222,6 +223,10 @@ def verify(n, pr):
     os.makedirs(sd, exist_ok=True)
     for a, b in (('geode.bin', 'GEODE.BIN'), ('LEVELS.DAT', 'LEVELS.DAT')):
         shutil.copy(os.path.join(ROOT, 'build', a), os.path.join(sd, b))
+    if rows is not None:
+        with open(os.path.join(sd, 'LEVELS.DAT'), 'r+b') as f:
+            f.seek(16 + 240 * (n - 1))
+            f.write(levelgen.encode(rows))
     buf = prof.sym('replay_buf')
     data = sim.replay_hex(pr)
     if len(data) // 2 > 2048:                      # (RP_SIZE)
