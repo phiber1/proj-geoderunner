@@ -939,12 +939,53 @@ gd_cellp:
                 ldx     gd_m
                 rts
 
-; gd_redraw: have everyone redrawn over a changed cell (their patches)
+; gd_redraw: have them redrawn over the cell just drawn (draw_cell's
+; dc_r, dc_c): the hero, and any guard over it or near it (a guard is wider
+; than a cell: one standing still there, trapped in a pit say, was left
+; with a strip of him wiped).  (Near: within a guard's width across, two
+; rows up or down: a hole's cells above and below.)
 gd_redraw:
+                pshx
                 ldd     #0
                 std     hero_a+A_OSPR
-                std     gs+A_OSPR
+                ldaa    dc_r            ; the cell's place, as an actor's
+                inca
+                ldab    #12
+                mul
+                stab    gr_y
+                ldaa    dc_c
+                lsla
+                lsla
+                staa    gr_x
+                ldx     #gs
+                bsr     gr_near
+                ldx     #guards
+                ldab    nguard
+                beq     gdr_r
+gdr_b:          pshb
+                bsr     gr_near
+                ldab    #GD_SIZE
+                abx
+                pulb
+                decb
+                bne     gdr_b
+gdr_r:          pulx
                 rts
+gr_near:        ldaa    A_X,x
+                suba    gr_x
+                bpl     grn_f1
+                nega
+grn_f1:         cmpa    #9
+                bcc     grn_r
+                ldaa    A_Y,x
+                suba    gr_y
+                bpl     grn_f2
+                nega
+grn_f2:         cmpa    #25
+                bcc     grn_r
+                clr     A_OSPR,x        ; (a pose no one has: redraw him)
+                clr     A_OSPR+1,x
+grn_r:          rts
 
 ; guard_pose: the guard in gs: falling, on a cable (hand over hand),
 ; climbing (or trapped), walking (stride, legs together, facing his way), standing

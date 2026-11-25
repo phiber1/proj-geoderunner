@@ -177,6 +177,4 @@ hs2_f1:         ldaa    ho_rc
                 inca
                 ldab    ho_rc+1
                 jsr     draw_cell
-hs2_f2:         ldd     #0              ; (a pose no one has: redraw him)
-                std     hero_a+A_OSPR
-                rts
+hs2_f2:         jmp     gd_redraw       ; (a pose no one has: redraw them)

@@ -161,6 +161,8 @@ gu_p            rmb     2
 gu_q            rmb     2
 gu_q2           rmb     2
 gd_here         rmb     1
+gr_x            rmb     1               ; guards.inc: gd_redraw's cell, as an actor's place
+gr_y            rmb     1
 gd_below        rmb     1
 gd_goal         rmb     1
 gd_want         rmb     1
@@ -752,8 +754,7 @@ geode_take:
                 clr     0,x             ; (air)
                 ldd     h_r
                 jsr     draw_cell
-                ldd     #0              ; (redraw him over it)
-                std     hero_a+A_OSPR
+                jsr     gd_redraw       ; (redraw them over it)
                 ldd     #$0250
                 jsr     score_add
                 jsr     status_score
@@ -804,8 +805,7 @@ exit_update:
                 inca
                 ldab    ex_col
                 jsr     draw_cell
-eu_f1:          ldd     #0
-                std     hero_a+A_OSPR
+eu_f1:          jsr     gd_redraw
                 dec     ex_row
                 bpl     eu_r
                 ldaa    #2              ; all there
