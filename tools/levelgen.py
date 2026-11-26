@@ -872,7 +872,9 @@ REROLL = {47: 1,       # (47: four guards camped the one way to the exit: the so
 
 # levels touched up by hand after they're made: (row, col, cell) changes
 # (tools/trapfit.py moves a guard prison off the patrol path)
-EDITS = {}
+EDITS = {84: [(13, 2, '.'), (10, 31, '.')]}  # (84, played at 96: two fewer
+                        # geodes, its most out-of-the-way: the owner's trial of
+                        # whether ten was what made it so hard)
 
 
 # the order the layouts are played in: slot: the number of the layout
