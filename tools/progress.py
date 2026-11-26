@@ -29,6 +29,7 @@ class Progress:
 
     def __init__(self, total, what='levels', top=256):
         import multiprocessing
+        background()
         self.running = multiprocessing.Array('d', top, lock=False)
         self.total, self.what = total, what
         self.done, self.note = 0, ''
@@ -90,9 +91,20 @@ class Progress:
 _running = None
 
 
+def background():
+    """the lowest priority (nice 19): a long run takes only what's left over,
+    never a frame from the emulator the owner is playing in (it once
+    lagged mid-level under a run at full priority)"""
+    try:
+        os.nice(19 - os.nice(0))
+    except OSError:
+        pass
+
+
 def init(running):
     global _running
     _running = running
+    background()
 
 
 def started(n):
