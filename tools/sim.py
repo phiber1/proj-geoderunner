@@ -171,6 +171,13 @@ class Game:
                 b = J_LEFT if self.face else J_RIGHT
             self.ddir = b
             self.dlat = DIG_LATCH
+            # pressed walking between cells: snapped to the nearer one,
+            # deciding there now (hero.inc)
+            if not self.dig and self.t and self.dir in (D_LEFT, D_RIGHT):
+                if self.t > H_WALK // 2:
+                    self.c += 1 if self.dir == D_LEFT else -1
+                self.x = self.c * 4
+                self.t = 0
         elif self.dlat:
             self.dlat -= 1
         if self.dig:

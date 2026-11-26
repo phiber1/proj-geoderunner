@@ -118,6 +118,31 @@ hero_update:
 hu_l0:          stab    h_ddir
                 ldaa    #DIG_LATCH
                 staa    h_dlat
+; pressed while walking between cells: he digs now, from the nearer of
+; the two (snapped to it, half a cell at most), not a step later from the
+; next (owner: in tight quarters a dig mid-step came a cell late, or not
+; at all where the next cell couldn't be dug from)
+                tst     h_dig
+                bne     hu_l2
+                ldaa    h_t
+                beq     hu_l2
+                ldab    h_dir
+                cmpb    #D_LEFT
+                beq     hu_s1
+                cmpb    #D_RIGHT
+                bne     hu_l2
+hu_s1:          cmpa    #H_WALK/2       ; most of the step still to go: back
+                bls     hu_s3           ; to the cell he's leaving
+                cmpb    #D_LEFT
+                bne     hu_s2
+                inc     h_c
+                bra     hu_s3
+hu_s2:          dec     h_c
+hu_s3:          ldaa    h_c             ; (there, on the cell)
+                lsla
+                lsla
+                staa    h_x
+                clr     h_t
                 bra     hu_l2
 hu_l1:          tst     h_dlat
                 beq     hu_l2
