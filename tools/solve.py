@@ -67,8 +67,9 @@ def dist_to(grid, targets):
 
 
 class Solver:
-    def __init__(self, rows, width=200, per_cell=PER_CELL, brave=1.0, react=0, order=None):
+    def __init__(self, rows, width=200, per_cell=PER_CELL, brave=1.0, react=0, order=None, seed=sim.SEED):
         self.rows = rows
+        self.seed = seed                # (the respawn seed: where buried guards come back)
         self.order = order              # (geodes to go after in this order: a plan)
         self.react = react              # (frames he stands still before doing
                                         # something new: a player's reaction)
@@ -141,8 +142,13 @@ class Solver:
                 break
         return used
 
-    def solve(self, max_steps=1200, report=None):
-        start = sim.Game(self.rows)
+    def solve(self, max_steps=1200, report=None, start=None, fork=None):
+        """(start: a game to go on from; fork: a test of a state where the
+        search stops following it, saved in self.forks instead: where a
+        guard is buried, say, and his respawn's luck comes in)"""
+        if start is None:
+            start = sim.Game(self.rows, seed=self.seed)
+        self.forks = []
         beam = [(self.score(start), start, [], None)]
         seen = set()
         for step in range(max_steps):
@@ -193,6 +199,9 @@ class Solver:
                     s2 = self.score(h)
                     if s2 is None:
                         continue
+                    if fork is not None and fork(g, h):
+                        self.forks.append((s2, h, path + used))
+                        continue
                     if key not in nxt or nxt[key][0] < s2:
                         nxt[key] = (s2, h, path + used, prev)
             if not nxt:
@@ -219,10 +228,10 @@ class Solver:
 TRIES = [(200, 3, 1.0), (600, 6, 0.3), (1500, 10, 0.15)]
 
 
-def solve_hard(rows, report=None, tries=TRIES, react=0):
+def solve_hard(rows, report=None, tries=TRIES, react=0, seed=sim.SEED):
     """the plain search first, then wider and bolder ones"""
     for w, pc, b in tries:
-        joys, g = Solver(rows, w, pc, b, react).solve(report=report)
+        joys, g = Solver(rows, w, pc, b, react, seed=seed).solve(report=report)
         if joys is not None:
             return joys, g
     return None, None
