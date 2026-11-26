@@ -102,7 +102,13 @@ if __name__ == '__main__':
                          % (n, m[0], m[1], m[2]))
             pg.finished(n)
     pg.close()
-    with open(os.path.join(solve.ROOT, 'build', 'breath.txt'), 'w') as f:
-        for n in sorted(out):
-            if out[n]:
-                f.write('%d %.0f %.0f\n' % (n, out[n][0], out[n][1]))
+    path = os.path.join(solve.ROOT, 'build', 'breath.txt')
+    table = {}                          # (merged with what's there)
+    if os.path.exists(path):
+        for line in open(path):
+            n, a, b = line.split()
+            table[int(n)] = (float(a), float(b))
+    table.update({n: m[:2] for n, m in out.items() if m})
+    with open(path, 'w') as f:
+        for n in sorted(table):
+            f.write('%d %.0f %.0f\n' % (n, table[n][0], table[n][1]))

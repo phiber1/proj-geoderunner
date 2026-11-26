@@ -17,7 +17,7 @@ import solve                    # noqa: E402
 import levelgen                 # noqa: E402
 import progress                 # noqa: E402
 
-TRIES = 12                       # (rerolls tried a level, at most)
+TRIES = 30                       # (rerolls tried a level, at most)
 # a new layout must give way to the quicker searches: one only the widest
 # can do (an hour's search) is too hard for the players we have in mind
 SEARCHES = solve.TRIES[:2]
@@ -31,6 +31,16 @@ REACT = 8
 # be trapped; 150: one guard buried on purpose, so he's back at the top when
 # the hero drops through the middle floor onto the other three)
 KEEP = {53, 149, 150}
+# a new layout must also fit its slot (owner, on the first new 96: far
+# harder than its neighbors): how hard it presses the hero
+# (tools/pressure.py) no more than MAX_PRESSURE when given (--max-pressure P)
+MAX_PRESSURE = None
+
+
+def pressure(rows):
+    s = solve.Solver(rows, react=REACT)
+    s.solve()
+    return 100.0 * s.deaths / max(1, s.states)
 
 
 def one(n):
@@ -41,6 +51,8 @@ def one(n):
     for k in range(k0 + 1, k0 + 1 + TRIES):
         levelgen.REROLL[m] = k
         rows, style = levelgen.level(n)
+        if MAX_PRESSURE is not None and pressure(rows) > MAX_PRESSURE:
+            continue
         joys, g = solve.solve_hard(rows, tries=SEARCHES, react=REACT)
         if joys is None:
             continue
@@ -54,7 +66,11 @@ def one(n):
 
 if __name__ == '__main__':
     os.makedirs(os.path.join(solve.ROOT, 'build', 'solutions'), exist_ok=True)
-    levels = [int(a) for a in sys.argv[1:]]
+    args = sys.argv[1:]
+    if args[:1] == ['--max-pressure']:
+        MAX_PRESSURE = float(args[1])
+        args = args[2:]
+    levels = [int(a) for a in args]
     for n in sorted(set(levels) & KEEP):
         print('level %3d: kept as it is (the owner has beaten it): not made again' % n)
     levels = [n for n in levels if n not in KEEP]

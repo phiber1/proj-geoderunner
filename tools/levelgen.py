@@ -862,7 +862,8 @@ def candidate(n, seed):
 # first ones unfair (level: a number mixed into its seeds)
 REROLL = {47: 1,       # (47: four guards camped the one way to the exit: the solver found no way)
           48: 1,       # (48: three guards closed on the start at once: no way)
-          84: 1,       # (84, played at 96: its way needed respawns to fall right)
+          84: 2,       # (84, played at 96: its way needed respawns to fall right;
+                       # the next far harder than its neighbors)
           100: 3,      # (100: the first had a guard parked in a dead-end corner)
           104: 1,      # (104: the solver found no way)
           105: 1,      # (105, 121: none a player could do: with a

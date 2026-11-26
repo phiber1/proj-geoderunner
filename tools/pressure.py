@@ -37,6 +37,13 @@ if __name__ == '__main__':
             pg.print('level %3d: pressure %4.1f%%%s' % (n, pr, '' if ok else '  (not solved)'))
             pg.finished(n)
     pg.close()
-    with open(os.path.join(solve.ROOT, 'build', 'pressure.txt'), 'w') as f:
-        for n in sorted(out):
-            f.write('%d %.1f %d\n' % (n, out[n][0], out[n][1]))
+    path = os.path.join(solve.ROOT, 'build', 'pressure.txt')
+    table = {}                          # (merged with what's there)
+    if os.path.exists(path):
+        for line in open(path):
+            n, pr, ok = line.split()
+            table[int(n)] = (float(pr), int(ok))
+    table.update(out)
+    with open(path, 'w') as f:
+        for n in sorted(table):
+            f.write('%d %.1f %d\n' % (n, table[n][0], table[n][1]))
