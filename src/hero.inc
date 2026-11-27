@@ -118,6 +118,25 @@ hero_update:
 hu_l0:          stab    h_ddir
                 ldaa    #DIG_LATCH
                 staa    h_dlat
+; pressed while walking between cells: the step done at once, and the dig
+; from the cell he was walking into (where it always came from), now
+; rather than when he gets there.  Never back to the cell he left: the
+; dig's place doesn't hang on when in the step he pressed (the owner: a
+; snap to the nearer cell left gaps in his rows of holes)
+                tst     h_dig
+                bne     hu_l2
+                tst     h_t
+                beq     hu_l2
+                ldab    h_dir
+                cmpb    #D_LEFT
+                beq     hu_s1
+                cmpb    #D_RIGHT
+                bne     hu_l2
+hu_s1:          ldaa    h_c             ; (there, on the cell)
+                lsla
+                lsla
+                staa    h_x
+                clr     h_t
                 bra     hu_l2
 hu_l1:          tst     h_dlat
                 beq     hu_l2

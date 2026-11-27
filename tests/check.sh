@@ -75,9 +75,10 @@ check "digging: $(echo "$out" | bytes $(cell 14 29) 1) (digging), $(echo "$out" 
 r=$(integrity $D/s5)
 check "after a hole dug and filled: $r" "[ \"$r\" = 'tmap_bad=0 screen_bad=0' ]"
 
-# 5b. A quick SPACE tap in the middle of a step isn't lost: it digs at
-#     the next cell (left, the way he walked).
-out=$(run poke:$JF,04 frames:3 poke:$JF,10 frames:1 poke:$JF,00 frames:12 mem:$HR,2 mem:$(cell 14 28),1)
+# 5b. A quick SPACE tap in the middle of a step isn't lost: the step is
+#     done at once and it digs from the next cell (left, the way he
+#     walked), now, not when he'd have got there.
+out=$(run poke:$JF,04 frames:3 poke:$JF,10 frames:1 poke:$JF,00 frames:2 mem:$HR,2 mem:$(cell 14 28),1)
 check "a SPACE tap mid-step digs on arrival (at $(echo "$out" | bytes $HR 1): cell $(echo "$out" | bytes $(cell 14 28) 1))" \
       "[ $(echo "$out" | bytes $HR 1) = 0D1D ] && echo \" 09 0A \" | grep -q \" $(echo "$out" | bytes $(cell 14 28) 1) \""
 

@@ -171,6 +171,11 @@ class Game:
                 b = J_LEFT if self.face else J_RIGHT
             self.ddir = b
             self.dlat = DIG_LATCH
+            # pressed walking between cells: the step done at once, the dig
+            # from the cell he was walking into (hero.inc)
+            if not self.dig and self.t and self.dir in (D_LEFT, D_RIGHT):
+                self.x = self.c * 4
+                self.t = 0
         elif self.dlat:
             self.dlat -= 1
         if self.dig:
