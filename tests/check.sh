@@ -75,15 +75,10 @@ check "digging: $(echo "$out" | bytes $(cell 14 29) 1) (digging), $(echo "$out" 
 r=$(integrity $D/s5)
 check "after a hole dug and filled: $r" "[ \"$r\" = 'tmap_bad=0 screen_bad=0' ]"
 
-# 5b. A SPACE tap in the middle of a step digs at once, from the nearer
-#     cell (snapped to it): early in a step to the left, from the cell he
-#     was leaving (the hole below-left of it); late in the step, from the
-#     cell he was entering.
-out=$(run poke:$JF,04 frames:3 poke:$JF,10 frames:1 poke:$JF,00 frames:2 mem:$HR,2 mem:$(cell 14 29),1)
-check "a SPACE tap early in a step digs at once from the cell left (at $(echo "$out" | bytes $HR 1): cell $(echo "$out" | bytes $(cell 14 29) 1))" \
-      "[ $(echo "$out" | bytes $HR 1) = 0D1E ] && echo \" 09 0A \" | grep -q \" $(echo "$out" | bytes $(cell 14 29) 1) \""
-out=$(run poke:$JF,04 frames:7 poke:$JF,10 frames:1 poke:$JF,00 frames:2 mem:$HR,2 mem:$(cell 14 28),1)
-check "a SPACE tap late in a step digs at once from the cell entered (at $(echo "$out" | bytes $HR 1): cell $(echo "$out" | bytes $(cell 14 28) 1))" \
+# 5b. A quick SPACE tap in the middle of a step isn't lost: it digs at
+#     the next cell (left, the way he walked).
+out=$(run poke:$JF,04 frames:3 poke:$JF,10 frames:1 poke:$JF,00 frames:12 mem:$HR,2 mem:$(cell 14 28),1)
+check "a SPACE tap mid-step digs on arrival (at $(echo "$out" | bytes $HR 1): cell $(echo "$out" | bytes $(cell 14 28) 1))" \
       "[ $(echo "$out" | bytes $HR 1) = 0D1D ] && echo \" 09 0A \" | grep -q \" $(echo "$out" | bytes $(cell 14 28) 1) \""
 
 # 5c. No digging under a geode (as under a ladder).
@@ -91,11 +86,10 @@ out=$(run poke:$(cell 13 29),05 poke:$JF,14 frames:1 poke:$JF,00 frames:20 mem:$
 check "no dig under a geode (brick $(echo "$out" | bytes $(cell 14 29) 1))" "[ $(echo "$out" | bytes $(cell 14 29) 1) = 01 ]"
 
 # 5e. The hole goes the way he faced when SPACE was pressed: tapped
-#     early in a step left (dug from the cell he left), then right held:
-#     still left.
-out=$(run poke:$JF,04 frames:3 poke:$JF,10 frames:1 poke:$JF,08 frames:5 poke:$JF,00 frames:10 mem:$(cell 14 29),1 mem:$(cell 14 31),1)
-check "dig way from the press (left $(echo "$out" | bytes $(cell 14 29) 1), right $(echo "$out" | bytes $(cell 14 31) 1))" \
-      "echo \" 09 0A 00 \" | grep -q \" $(echo "$out" | bytes $(cell 14 29) 1) \" && [ $(echo "$out" | bytes $(cell 14 31) 1) = 01 ]"
+#     walking left, then right held before he arrives: still left.
+out=$(run poke:$JF,04 frames:3 poke:$JF,10 frames:1 poke:$JF,08 frames:5 poke:$JF,00 frames:10 mem:$(cell 14 28),1 mem:$(cell 14 30),1)
+check "dig way from the press (left $(echo "$out" | bytes $(cell 14 28) 1), right $(echo "$out" | bytes $(cell 14 30) 1))" \
+      "echo \" 09 0A 00 \" | grep -q \" $(echo "$out" | bytes $(cell 14 28) 1) \" && [ $(echo "$out" | bytes $(cell 14 30) 1) = 01 ]"
 
 # 5d. One press, one hole: SPACE held digs once (the way he faces, right),
 #     and pressing A with it still held walks him left, no second hole.
