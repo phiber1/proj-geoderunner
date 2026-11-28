@@ -861,6 +861,8 @@ def candidate(n, seed):
 # levels made again from other random numbers, the owner having found the
 # first ones unfair (level: a number mixed into its seeds)
 REROLL = {47: 1,       # (47: four guards camped the one way to the exit: the solver found no way)
+          43: 1,       # (43, played at 144: none a player could do once the dig
+                       # and trapped-guard rules changed)
           48: 1,       # (48: three guards closed on the start at once: no way)
           84: 25,      # (84, played at 96: its way needed respawns to fall right;
                        # the next far harder than its neighbors; then one whose
