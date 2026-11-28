@@ -12,7 +12,7 @@ H=$VMC10/build/headless
 R=$VMC10/roms
 LST=build/geode.lst
 SD=build/sd-check
-mkdir -p $SD && cp build/geode.bin $SD/GEODE.BIN && cp build/LEVELS.DAT $SD/LEVELS.DAT
+mkdir -p $SD && cp build/geode.bin $SD/GEODE.BIN && cp build/LEVELS.DAT $SD/LEVELS.DAT && rm -f $SD/GEODE.HI
 pass=0; fail=0
 check() {   # name, condition (shell test)
     if eval "$2"; then echo "PASS  $1"; pass=$((pass+1)); else echo "FAIL  $1"; fail=$((fail+1)); fi
@@ -31,6 +31,11 @@ HR=$(sym h_r); JF=$(sym joy_force); DS=$(sym dbg_safe); DL=$(sym dbg_loops); FC=
 SC=$(sym score); LI=$(sym lives); LV=$(sym level); GL=$(sym g_left); ES=$(sym ex_state); HD=$(sym h_dead)
 G0R=$(off $GUARDS 8); G0ST=$(off $GUARDS 14)
 cell() { off $MAP $(($1 * 32 + $2)); }
+# pokes that move the hero or change the map wait for the top of the game
+# loop first (bp:): poked between two frames, they could land in the middle
+# of a redraw, which then mixed the old place and the new into a patch too
+# tall for the shadow buffer and wrote past it
+SAFE="bp:$(sym loop)"
 LOWEND=$(off $TMAP 480); LOWLEN=$((0x2000 - 0x$LOWEND))
 # the memory the integrity check reads
 STATE="mem:$MAP,480 mem:$TMAP,480 mem:4000,6144 mem:$HERO,8 mem:$GUARDS,$((GD * 4)) mem:$NGUARD,1"
@@ -125,7 +130,7 @@ check "at a ladder's foot ($(echo "$out" | bytes $HR 1)): standing (on $(echo "$
 # 5g. Where a tall ladder passes a floor (column 17, row 7 of level 1:
 #     floor either side below), he stands and can dig beside it; UP held
 #     climbs on past it, DOWN held climbs down past it to the bottom.
-out=$(run poke:$DS,01 poke:$HR,0711 poke:$HERO,4460 frames:4 mem:$HON,1 poke:$JF,18 frames:1 poke:$JF,00 frames:4 mem:$(cell 8 18),1 \
+out=$(run poke:$DS,01 $SAFE poke:$HR,0711 poke:$HERO,4460 frames:4 mem:$HON,1 poke:$JF,18 frames:1 poke:$JF,00 frames:4 mem:$(cell 8 18),1 \
       poke:$JF,01 frames:44 mem:$HR,2 poke:$JF,02 frames:70 mem:$HR,2 poke:$JF,00)
 check "a ladder through a floor: stands (on $(echo "$out" | bytes $HON 1)), digs beside ($(echo "$out" | bytes $(cell 8 18) 1)), up past it ($(echo "$out" | bytes $HR 1)), down past it ($(echo "$out" | bytes $HR 2))" \
       "[ $(echo "$out" | bytes $HON 1) = 00 ] && [ $(echo "$out" | bytes $(cell 8 18) 1) = 09 ] && [ $(echo "$out" | bytes $HR 1) = 0411 ] && [ $(echo "$out" | bytes $HR 2) = 0A11 ]"
@@ -135,7 +140,7 @@ check "a ladder through a floor: stands (on $(echo "$out" | bytes $HON 1)), digs
 #     then the near one, drop in, dig under the far one, drop through into
 #     the vault, take the geode, dig out through its floor, land below.
 VAULT="poke:$(cell 9 1),02010101 poke:$(cell 9 5),02 poke:$(cell 10 1),02 poke:$(cell 10 5),02 poke:$(cell 10 4),05"
-out=$(run poke:$DS,01 $VAULT poke:$HR,0702 poke:$HERO,0860 frames:4 mem:$GL,1 \
+out=$(run poke:$DS,01 $SAFE $VAULT poke:$HR,0702 poke:$HERO,0860 frames:4 mem:$GL,1 \
       poke:$JF,18 frames:1 poke:$JF,00 frames:14 poke:$JF,04 frames:2 poke:$JF,00 frames:10 \
       poke:$JF,18 frames:1 poke:$JF,00 frames:14 poke:$JF,08 frames:2 poke:$JF,00 frames:24 \
       poke:$JF,18 frames:1 poke:$JF,00 frames:14 poke:$JF,08 frames:2 poke:$JF,00 frames:40 mem:$HR,2 \
@@ -183,7 +188,7 @@ check "a teleported guard leaves the memory past the buffers untouched" "[ \"$m1
 #     out at the top: the level done (1500 more, a life), level 2.
 EXC=$(python3 tools/levelgen.py 1 | awk 'NR>1 { i = index($0, "X"); if (i) { print i - 1; exit } }')
 out=$(run poke:$(cell 13 29),05 poke:$GL,01 poke:$JF,04 frames:9 poke:$JF,00 frames:4 mem:$SC,3 mem:$GL,1 frames:100 mem:$ES,1 \
-      poke:$HR,00$(printf '%02X' $EXC) frames:120 mem:$SC,3 frames:150 mem:$SC,3 mem:$LI,1 mem:$LV,1)
+      $SAFE poke:$HR,00$(printf '%02X' $EXC) frames:120 mem:$SC,3 frames:150 mem:$SC,3 mem:$LI,1 mem:$LV,1)
 check "a geode (score $(echo "$out" | bytes $SC 1)), the last: the exit grows (state $(echo "$out" | byte $ES))" \
       "[ $(echo "$out" | bytes $SC 1) = 000250 ] && [ $(echo "$out" | byte $GL) -eq 0 ] && [ $(echo "$out" | byte $ES) -eq 2 ]"
 mid=$(echo "$out" | bytes $SC 2); tens=0; case $mid in *0) tens=1 ;; esac
@@ -196,7 +201,7 @@ check "the count done: score $(echo "$out" | bytes $SC 3), lives $(echo "$out" |
 #      ending in 0 (a trapped guard is 75): the thousands digit changes
 #      during the count, not only at its end.
 out=$(run poke:$SC,000075 poke:$(cell 13 29),05 poke:$GL,01 poke:$JF,04 frames:9 poke:$JF,00 frames:100 \
-      poke:$HR,00$(printf '%02X' $EXC) frames:3 mem:4000,544 frames:117 mem:$SC,3 mem:4000,544)
+      $SAFE poke:$HR,00$(printf '%02X' $EXC) frames:3 mem:4000,544 frames:117 mem:$SC,3 mem:4000,544)
 thou() { echo "$out" | grep "^mem 4000" | sed -n "$1p" | cut -d: -f2 | awk '{for (r = 0; r < 17; r++) printf "%s", $(r * 32 + 9)}'; }
 check "the count on screen: thousands digit redrawn partway (score $(echo "$out" | bytes $SC 1))" \
       "[ \"$(thou 1)\" != \"$(thou 2)\" ] && [ $(echo "$out" | bytes $SC 1 | cut -c3) = 1 ]"
@@ -213,6 +218,15 @@ HI=$(sym hiscore)
 out=$(run poke:$SC,001234 poke:$LV,05 poke:$LI,01 poke:$HD,01 frames:600 mem:$LV,1 mem:$HI,3 'type: ' frames:60 mem:$LI,1 mem:$LV,1 mem:$SC,3)
 check "game over: the title (still level $(echo "$out" | byte $LV 1), best $(echo "$out" | bytes $HI)), then a new game (lives $(echo "$out" | byte $LI), level $(echo "$out" | byte $LV 2), score $(echo "$out" | bytes $SC))" \
       "[ $(echo "$out" | byte $LV 1) -eq 5 ] && [ $(echo "$out" | bytes $HI) = 001234 ] && [ $(echo "$out" | byte $LI) -eq 3 ] && [ $(echo "$out" | byte $LV 2) -eq 1 ] && [ $(echo "$out" | bytes $SC) = 000000 ]"
+
+# 11b. The best score is kept on the SD card: after that game over the
+#      title wrote GEODE.HI ("GR", the score, a checksum), and the next
+#      time the game starts it's the best again.
+hi=$(od -An -tx1 $SD/GEODE.HI 2>/dev/null | tr -d ' \n')
+out=$($H $R/MC10.BIN mcx32sd:$R/mcx32sd_flash.bin 8k sd:$SD frames:200 'type:RUNM"GEODE"\n' frames:120 mem:$HI,3)
+check "the best score saved (GEODE.HI $hi) and loaded again ($(echo "$out" | bytes $HI))" \
+      "[ \"$hi\" = 4752001234df ] && [ $(echo "$out" | bytes $HI) = 001234 ]"
+rm -f $SD/GEODE.HI
 
 # 12. Speed: on levels with four guards chasing, the game loop keeps up with
 #     the frames (measured after the level is drawn).
@@ -232,7 +246,7 @@ check "N with a level number: 041 -> $(echo "$out" | byte $LV 1), then 200 ignor
 # 12a. Speed with four guards milling about, unable to reach the hero (on
 #      level 53 at row 4, column 16, where four guards thinking in the same
 #      frame used to miss frames): at most one frame missed in 240.
-out=$(run poke:$DS,01 'type:N053' frames:120 poke:$JF,04 frames:2 poke:$JF,00 poke:$HR,0410 poke:$HERO,403C frames:200 mem:$DL,1 frames:240 mem:$DL,1)
+out=$(run poke:$DS,01 'type:N053' frames:120 poke:$JF,04 frames:2 poke:$JF,00 $SAFE poke:$HR,0410 poke:$HERO,403C frames:200 mem:$DL,1 frames:240 mem:$DL,1)
 l1=$(echo "$out" | byte $DL 1); l2=$(echo "$out" | byte $DL 2); loops=$(( (l2 - l1 + 256) % 256 ))
 check "speed, guards milling on level 53: $loops game loops in 240 frames" "[ $loops -ge 239 ]"
 
@@ -299,7 +313,7 @@ check "climbing a ladder past a trapped guard: safe (at $(echo "$out" | bytes $H
 
 # 17. The hero can stand on a guard's head (a guard at (13, 20), the hero
 #     put just above him), walk off unharmed, and dies pressing down.
-HEAD="poke:$GUARDS,50A8 poke:$G0R,0D140000000000 poke:$HERO,509C poke:$HR,0C14"
+HEAD="$SAFE poke:$GUARDS,50A8 poke:$G0R,0D140000000000 poke:$HERO,509C poke:$HR,0C14"
 out=$(run $HEAD frames:40 mem:$HR,2 mem:$LI,1 poke:$JF,08 frames:40 poke:$JF,00 frames:30 mem:$HR,2 mem:$LI,1)
 check "on a guard's head: stands ($(echo "$out" | bytes $HR 1)), walks off and down ($(echo "$out" | bytes $HR 2)), unharmed (lives $(echo "$out" | byte $LI 2))" \
       "[ $(echo "$out" | bytes $HR 1) = 0C14 ] && [ $(echo "$out" | byte $LI 1) -eq 3 ] && [ $(echo "$out" | bytes $HR 2 | cut -c1-2) = 0D ] && [ $(echo "$out" | byte $LI 2) -eq 3 ]"
@@ -311,7 +325,7 @@ check "pressing down on a guard's head: caught (lives $(echo "$out" | byte $LI))
 #     row" for a moment).  The scene, on level 1: the floor under the hero
 #     at (10, 24) opened, a ladder at column 25 (rows 11-13) with a guard
 #     on it at (11, 25); the hero falls to (13, 24).
-FALL="poke:$(cell 11 24),00 poke:$(cell 11 25),03 poke:$(cell 12 25),03 poke:$(cell 13 25),03 poke:$GUARDS,6490 poke:$G0R,0B190000000000 poke:$HERO,6084 poke:$HR,0A18"
+FALL="$SAFE poke:$(cell 11 24),00 poke:$(cell 11 25),03 poke:$(cell 12 25),03 poke:$(cell 13 25),03 poke:$GUARDS,6490 poke:$G0R,0B190000000000 poke:$HERO,6084 poke:$HR,0A18"
 samples=""; for i in $(seq 1 10); do samples="$samples frames:4 mem:$HR,2 mem:$LI,1"; done
 out=$(run $FALL $samples)
 rows=$(echo "$out" | grep "^mem $HR" | cut -d: -f2 | tr -d ' ' | tr '\n' ' ')

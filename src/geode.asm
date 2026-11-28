@@ -126,6 +126,8 @@ ls_i            rmb     1               ; title.inc: MC10 typed so far, keys,
 ls_was          rmb     1               ; ... the key held last frame
 cg_lim          rmb     1               ; guards.inc caught: how near is touching,
 cg_hole         rmb     1               ; ... the hero in a hole
+hi_buf          rmb     6               ; title.inc: GEODE.HI's bytes,
+hi_new          rmb     1               ; ... a new best to save
 ed_s            rmb     2               ; the ending: a place on the screen,
 ed_n            rmb     1               ; ... a count,
 ed_hy           rmb     1               ; ... the hero's top row,
@@ -308,6 +310,8 @@ start:
                 clr     hiscore
                 clr     hiscore+1
                 clr     hiscore+2
+                clr     hi_new
+                jsr     hi_load         ; (the best score from the SD card)
 to_title:
                 jsr     title
 new_game:

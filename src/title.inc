@@ -13,7 +13,11 @@ JG_W            equ     15429           ; chord (1 s: four beats of 0.25), the g
 JG_GAP          equ     463             ; between notes (0.03 s)
 
 title:
-                ldaa    #1              ; (a new game starts at level 1,
+                tst     hi_new          ; a new best: saved on the SD card
+                beq     tt_f0
+                clr     hi_new
+                jsr     hi_save
+tt_f0:          ldaa    #1              ; (a new game starts at level 1,
                 staa    start_lv        ; unless MC10 and a level are typed)
                 clr     chosen
                 clr     ls_i
@@ -246,7 +250,8 @@ hi_check:
                 ldaa    score+2
                 cmpa    hiscore+2
                 bls     hc_r
-hc_new:         ldd     score
+hc_new:         inc     hi_new          ; (saved at the title)
+                ldd     score
                 std     hiscore
                 ldaa    score+2
                 staa    hiscore+2
@@ -325,3 +330,97 @@ s_high:         fcc     "HIGH"
                 fcb     0
 s_maker:        fcc     "AN ABENE GAME"
                 fcb     0
+
+; ---------------------------------------------------------------- the best score
+; GEODE.HI on the SD card: "GR", the best score (3 BCD bytes), a checksum
+; (the sum of the five).  Read at start-up, written at the title after a
+; game that set a new best, through the BIOS's data-file calls (as BASIC's
+; OPEN / INPUT# / PRINT# / CLOSE).  A missing or bad file means 0; card
+; errors are ignored (the game never stops for them).
+HI_SIZE         equ     6
+HI_FILE         equ     2               ; (its file number; LEVELS.DAT's is 1)
+
+hi_pbinit:                              ; the parameter block: A = the mode
+                ldx     #lv_pb
+                ldab    #PB_SIZE
+hp_b1:          clr     0,x
+                inx
+                decb
+                bne     hp_b1
+                staa    lv_pb+PB_MODE
+                ldd     #s_hifile
+                std     lv_pb+PB_NAME
+                ldaa    #S_HIFILE_LEN
+                staa    lv_pb+PB_NLEN
+                ldd     #hi_buf
+                std     lv_pb+PB_BUF
+                ldd     #HI_SIZE
+                std     lv_pb+PB_LEN
+                rts
+
+hi_load:
+                ldaa    #HI_FILE        ; (close the handle first, as BASIC
+                jsr     hi_pbinit       ; does; errors ignored)
+                ldab    #BIOS_CLOSE
+                jsr     lv_bios
+                ldaa    #PB_IN|HI_FILE
+                jsr     hi_pbinit
+                ldab    #BIOS_OPEN
+                jsr     lv_bios
+                bcs     hl_r            ; no file (the first run): 0
+                ldab    #BIOS_READ      ; (a short read fails the checks)
+                jsr     lv_bios
+                ldaa    #HI_FILE
+                staa    lv_pb+PB_MODE
+                ldab    #BIOS_CLOSE
+                jsr     lv_bios
+                ldd     hi_buf          ; ours, and intact?
+                subd    #'G'*256+'R'
+                bne     hl_r
+                jsr     hi_sum
+                cmpa    hi_buf+5
+                bne     hl_r
+                ldd     hi_buf+2
+                std     hiscore
+                ldaa    hi_buf+4
+                staa    hiscore+2
+hl_r:           rts
+
+hi_sum:                                 ; A = the sum of hi_buf's first five
+                ldx     #hi_buf
+                clra
+                ldab    #5
+hsu_b1:          adda    0,x
+                inx
+                decb
+                bne     hsu_b1
+                rts
+
+hi_save:
+                ldd     #'G'*256+'R'    ; the file's bytes
+                std     hi_buf
+                ldd     hiscore
+                std     hi_buf+2
+                ldaa    hiscore+2
+                staa    hi_buf+4
+                jsr     hi_sum
+                staa    hi_buf+5
+                ldaa    #HI_FILE
+                jsr     hi_pbinit
+                ldab    #BIOS_CLOSE
+                jsr     lv_bios
+                ldaa    #PB_OUT|HI_FILE ; open for output (the BIOS makes it
+                jsr     hi_pbinit       ; if it's new)
+                ldab    #BIOS_OPEN
+                jsr     lv_bios
+                bcs     hv_r
+                ldab    #BIOS_WRITE
+                jsr     lv_bios
+                ldaa    #PB_OUT|HI_FILE ; close (an output file)
+                staa    lv_pb+PB_MODE
+                ldab    #BIOS_CLOSE
+                jsr     lv_bios
+hv_r:           rts
+
+s_hifile:       fcc     "GEODE.HI"
+S_HIFILE_LEN    equ     8
