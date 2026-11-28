@@ -12,30 +12,28 @@
     --ink: #1c2030; --soft: #5a6078; --paper: #fbfaf6; --tint: #eef0fb; --warm: #fbf3e2;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 8.5in; height: 11in; }
+  html, body { width: 8.5in; height: 11in; overflow: hidden; }
   body {
     background: var(--paper); color: var(--ink);
-    font: 9.3pt/1.38 "Noto Sans", "DejaVu Sans", sans-serif;
+    font: 9pt/1.34 "Noto Sans", "DejaVu Sans", sans-serif;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
     display: flex; flex-direction: column;
   }
   /* the header: the title screen on the cave's blue, a band of brick below */
   header {
     background: var(--cave); color: #fff; flex-shrink: 0;
-    padding: 0.26in 0.5in 0.2in; border-bottom: 0.1in solid var(--brick);
+    padding: 0.24in 0.5in 0.16in; border-bottom: 0.1in solid var(--brick);
   }
-  .top { display: flex; align-items: center; gap: 0.32in; }
-  .logo { width: 3.3in; image-rendering: pixelated; display: block; border: 2px solid var(--deep); }
-  .tag { flex: 1; }
+  .tag { max-width: 6.2in; }
   .tag .kicker { color: var(--gold); font-weight: 700; letter-spacing: 0.16em; font-size: 8pt; text-transform: uppercase; }
-  .tag h1 { font: 800 17pt/1.15 "Noto Sans Display", "Noto Sans", sans-serif; margin: 4px 0 6px; }
+  .tag h1 { font: 800 16pt/1.15 "Noto Sans Display", "Noto Sans", sans-serif; margin: 3px 0 4px; }
   .tag p { color: #d4d6f0; font-size: 9.2pt; }
-  .strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.16in; margin-top: 0.18in; }
+  .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.14in; margin-top: 0.14in; }
   figure img { width: 100%; display: block; image-rendering: pixelated; border: 2px solid var(--deep); }
   figcaption { font-size: 7.6pt; color: #c4c6e6; margin-top: 3px; text-align: center; }
 
-  main { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.28in; padding: 0.22in 0.5in 0.1in; }
-  section { margin-bottom: 0.15in; }
+  main { flex: 1; min-height: 0; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; gap: 0.28in; padding: 0.18in 0.5in 0.06in; }
+  section { margin-bottom: 0.12in; }
   h2 {
     font: 800 11pt/1.2 "Noto Sans Display", "Noto Sans", sans-serif; letter-spacing: 0.04em;
     color: var(--brick); text-transform: uppercase; margin: 0 0 5px;
@@ -63,18 +61,16 @@
 </head>
 <body>
 <header>
-  <div class="top">
-    <img class="logo" src="img/title.png" alt="The title screen">
-    <div class="tag">
-      <div class="kicker">An Abene game for the TRS-80 MC-10</div>
-      <h1>Dig, climb and run. Take every geode and escape the mine.</h1>
-      <p>150 levels of ladders, cables, brick and guards. Every level can be finished, and the best ones are puzzles you'll want to solve again.</p>
-    </div>
+  <div class="tag">
+    <div class="kicker">An Abene game for the TRS-80 MC-10</div>
+    <h1>Geode Runner: dig, climb and run.<br>Grab every geode and escape the mine.</h1>
+    <p>150 levels of ladders, cables, brick and guards. Every level can be finished, and the best ones are puzzles you'll want to solve again.</p>
   </div>
   <div class="strip">
+    <figure><img src="img/title.png" alt="The title screen"><figcaption>The title screen</figcaption></figure>
     <figure><img src="img/play.png" alt="Level 1"><figcaption>Level 1: geodes, ladders and a guard</figcaption></figure>
     <figure><img src="img/vault.png" alt="Level 53"><figcaption>Later levels hide geodes in vaults</figcaption></figure>
-    <figure><img src="img/ending.png" alt="The ending"><figcaption>Make it out after level 150</figcaption></figure>
+    <figure><img src="img/words.png" alt="Level 30"><figcaption>Every tenth level spells out a message</figcaption></figure>
   </div>
 </header>
 
@@ -103,7 +99,7 @@
       <ul>
         <li>You dig the brick next to your feet, never the one under you. Stone can't be dug, and neither can the brick under a ladder or a geode.</li>
         <li>A hole stays open for about five seconds, then fills in again. Anything still inside it when it closes is buried.</li>
-        <li>To go down through a floor, dig beside you, step into the hole and dig again.</li>
+        <li>To go down through a floor, dig beside you, and step into the hole to fall to the floor below.</li>
         <li>Some geodes sit in sealed brick vaults. Dig through the roof to get in, and through the floor to get out. Where a roof is two bricks thick, dig two holes side by side, drop into one and dig under the other.</li>
       </ul>
     </section>
@@ -136,6 +132,7 @@
           <li>Lead guards over a row of holes and you can catch several at once.</li>
           <li>Find places where you can keep the guards circling while you plan your next move.</li>
           <li>Watch which guard is carrying a geode before you trap him for good.</li>
+          <li>There's a secret password for choosing the level you start at. Can you find it?</li>
         </ul>
       </div>
     </section>
