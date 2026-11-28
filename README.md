@@ -42,8 +42,8 @@ The 150 levels are made by `tools/levelgen.py` and written to
 byte every build).  New styles join as the game goes on: floors,
 staggered ledges, rooms walled with stone, a brick pyramid, caverns dug
 out of solid rock, mirror images, and every 10th level a message spelled
-out in ladders.  Some geodes sit in sealed brick vaults, a few with roofs
-two bricks deep.
+out in ladders.  Some geodes sit in sealed brick vaults, left for the
+player to work out how to break into.
 
 Every level is checked to be beatable: `tools/sim.py` reproduces the
 game's rules exactly (`make simcheck` compares it with the real game,
