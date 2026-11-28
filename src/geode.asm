@@ -128,6 +128,7 @@ cg_lim          rmb     1               ; guards.inc caught: how near is touchin
 cg_hole         rmb     1               ; ... the hero in a hole
 hi_buf          rmb     6               ; title.inc: GEODE.HI's bytes,
 hi_new          rmb     1               ; ... a new best to save
+st_lz           rmb     1               ; num3: leading zeros as blanks
 ed_s            rmb     2               ; the ending: a place on the screen,
 ed_n            rmb     1               ; ... a count,
 ed_hy           rmb     1               ; ... the hero's top row,
@@ -527,9 +528,9 @@ lb_f2:          ldx     #TXT_AT(1,10)
 lb_f3:
                 dec     ld_n
                 bne     lb_b1
-                ldaa    lives           ; and a life (9 at most)
-                cmpa    #9
-                bcc     ld2_f1
+                ldaa    lives           ; and a life (255 at most, as the
+                cmpa    #255            ; original: the owner; 9 was far too
+                bcc     ld2_f1          ; few for 150 levels)
                 inc     lives
 ld2_f1:         jsr     status_draw
                 ldx     #fx_gem
@@ -1324,34 +1325,45 @@ status_draw:                            ; (double height, as in the mock-up)
                 ldd     #s_status
                 jsr     txt_str2
                 bsr     status_score
-                ldx     #TXT_AT(1,20)   ; the level: three digits
+                ldx     #TXT_AT(1,19)   ; the level: three digits
                 ldaa    level
+                clr     st_lz
+                bsr     num3
+                ldx     #TXT_AT(1,29)   ; the lives: up to three, no leading
+                ldaa    lives           ; zeros
+                ldab    #1
+                stab    st_lz
+; num3: A = a number, X = where: its three digits (st_lz set: leading
+; zeros as blanks; the last digit always shown)
+num3:
                 clrb
-sd_b1:          cmpa    #100
-                bcs     sd_f1
+n3_b1:          cmpa    #100
+                bcs     n3_f1
                 suba    #100
                 incb
-                bra     sd_b1
-sd_f1:          staa    st_n
+                bra     n3_b1
+n3_f1:          staa    st_n
                 tba
-                adda    #'0'
-                jsr     txt_char2
+                bsr     n3_dig
                 ldaa    st_n
                 clrb
-sd_b2:          cmpa    #10
-                bcs     sd_f2
+n3_b2:          cmpa    #10
+                bcs     n3_f2
                 suba    #10
                 incb
-                bra     sd_b2
-sd_f2:          staa    st_n
+                bra     n3_b2
+n3_f2:          staa    st_n
                 tba
-                adda    #'0'
-                jsr     txt_char2
+                bsr     n3_dig
                 ldaa    st_n
-                adda    #'0'
-                jsr     txt_char2
-                ldx     #TXT_AT(1,31)   ; the lives
-                ldaa    lives
+                clr     st_lz
+n3_dig:         tsta
+                bne     n3_d1
+                tst     st_lz
+                beq     n3_d1
+                ldaa    #' '
+                jmp     txt_char2
+n3_d1:          clr     st_lz
                 adda    #'0'
                 jmp     txt_char2
 
@@ -1480,7 +1492,7 @@ s_file:         fcc     "LEVELS.DAT"
 S_FILE_LEN      equ     *-s_file
 s_nofile:       fcc     "LEVELS.DAT NOT FOUND"
                 fcb     0
-s_status:       fcc     "SCORE         LEVEL      LIVES"
+s_status:       fcc     "SCORE        LEVEL     LIVES"
                 fcb     0
 s_over:         fcc     "GAME OVER"
                 fcb     0
