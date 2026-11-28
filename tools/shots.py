@@ -52,9 +52,10 @@ def main():
     save(t('play'), 'play')
     emulate(['frames:240', 'type: ', 'frames:60', 'type:N053', 'frames:120', 'ppm:' + t('vault')], 'vault')
     save(t('vault'), 'vault')
-    # a word level (every tenth: a message in ladders); not the ending,
+    # a word level (every tenth: a message in ladders: level 20's, MC10
+    # 1983, a hint in plain sight at the password); not the ending,
     # which stays a surprise
-    emulate(['frames:240', 'type: ', 'frames:60', 'type:N030', 'frames:120', 'ppm:' + t('words')], 'words')
+    emulate(['frames:240', 'type: ', 'frames:60', 'type:N020', 'frames:120', 'ppm:' + t('words')], 'words')
     save(t('words'), 'words')
     print('pictures in docs/img')
 
