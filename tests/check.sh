@@ -21,7 +21,7 @@ sym() { printf '%04X' 0x$(awk '/Symbol Table/{p=1} p' $LST | tr '|' '\n' | awk -
 off() { printf '%04X' $((0x$1 + $2)); }
 # load the game the way a player does; level 1 is drawn ~60 frames after SPACE
 # (the title and its jingle, then SPACE)
-run() { $H $R/MC10.BIN mcx32sd:$R/mcx32sd_flash.bin 8k sd:$SD frames:200 'type:RUNM"GEODE"\n' frames:240 'type: ' frames:60 "$@"; }
+run() { $H $R/MC10.BIN mcx32sd:$R/mcx32sd_flash.bin 8k sd:$SD frames:200 'type:RUNM"GEODE"\n' frames:240 'type: ' frames:60 $SAFE "$@"; }
 byte() { grep "^mem $1" | sed -n "${2:-1}p" | awk '{print strtonum("0x"$3)}'; }
 bytes() { grep "^mem $1" | sed -n "${2:-1}p" | cut -d: -f2 | tr -d ' '; }
 
@@ -31,10 +31,10 @@ HR=$(sym h_r); JF=$(sym joy_force); DS=$(sym dbg_safe); DL=$(sym dbg_loops); FC=
 SC=$(sym score); LI=$(sym lives); LV=$(sym level); GL=$(sym g_left); ES=$(sym ex_state); HD=$(sym h_dead)
 G0R=$(off $GUARDS 8); G0ST=$(off $GUARDS 14)
 cell() { off $MAP $(($1 * 32 + $2)); }
-# pokes that move the hero or change the map wait for the top of the game
-# loop first (bp:): poked between two frames, they could land in the middle
-# of a redraw, which then mixed the old place and the new into a patch too
-# tall for the shadow buffer and wrote past it
+# pokes that move the hero or guards or change the map wait for the top of
+# the game loop first (bp:; run does it before a test's first): poked between
+# two frames, they could land in the middle of a redraw, which then mixed
+# the old place and the new into a patch too tall for the shadow buffer
 SAFE="bp:$(sym loop)"
 LOWEND=$(off $TMAP 480); LOWLEN=$((0x2000 - 0x$LOWEND))
 # the memory the integrity check reads
@@ -166,7 +166,7 @@ check "caught by the guard: lives $(echo "$out" | byte $LI)" "[ $(echo "$out" | 
 #    and score are sampled every 5 frames.)
 samples=""; for i in $(seq 1 60); do samples="$samples frames:5 mem:$G0ST,1 mem:$SC,3"; done
 out=$(run mem:$LOWEND,$LOWLEN poke:$DS,01 poke:$JF,14 frames:1 poke:$JF,00 frames:200 \
-      poke:$GUARDS,74A8 poke:$G0R,0D1D0000000000 $samples mem:$G0R,1 mem:$LOWEND,$LOWLEN $STATE)
+      $SAFE poke:$GUARDS,74A8 poke:$G0R,0D1D0000000000 $samples mem:$G0R,1 mem:$LOWEND,$LOWLEN $STATE)
 echo "$out" > $D/s8
 trapped=$(echo "$out" | grep "^mem $G0ST" | awk '$3=="01"' | wc -l)
 s75=$(echo "$out" | grep "^mem $SC" | cut -d: -f2 | tr -d ' ' | grep -c '^000075$')
@@ -180,7 +180,7 @@ check "after a burial and respawn: $r" "[ \"$r\" = 'tmap_bad=0 screen_bad=0' ]"
 
 # 9. A guard moved far in one go (as a respawn does) is erased and redrawn
 #    by itself: the patch never outgrows the shadow buffer.
-out=$(run mem:$LOWEND,$LOWLEN poke:$GUARDS,7CB4 poke:$G0R,0E1F frames:4 poke:$GUARDS,400C poke:$(off $GUARDS 6),0000 poke:$G0R,0010 poke:$JF,04 frames:2 poke:$JF,00 frames:10 mem:$LOWEND,$LOWLEN)
+out=$(run mem:$LOWEND,$LOWLEN poke:$GUARDS,7CB4 poke:$G0R,0E1F frames:4 $SAFE poke:$GUARDS,400C poke:$(off $GUARDS 6),0000 poke:$G0R,0010 poke:$JF,04 frames:2 poke:$JF,00 frames:10 mem:$LOWEND,$LOWLEN)
 m1=$(echo "$out" | bytes $LOWEND 1 | md5sum); m2=$(echo "$out" | bytes $LOWEND 2 | md5sum)
 check "a teleported guard leaves the memory past the buffers untouched" "[ \"$m1\" = \"$m2\" ]"
 
@@ -285,7 +285,7 @@ check "guard speed: $w1 frames a cell on level 1, $w2 on level 150 (one pace)" "
 HOLES=$(sym holes)
 samples=""; for i in $(seq 1 16); do samples="$samples frames:5 mem:$G0R,2"; done
 out=$(run poke:$DS,01 poke:$JF,04 frames:2 poke:$JF,08 frames:2 poke:$JF,00 frames:20 \
-      poke:$HOLES,0E1C030018 poke:$(cell 14 28),0C poke:$GUARDS,6CA8 poke:$G0R,0D1B0000000000 $samples)
+      $SAFE poke:$HOLES,0E1C030018 poke:$(cell 14 28),0C poke:$GUARDS,6CA8 poke:$G0R,0D1B0000000000 $samples)
 pos=$(echo "$out" | grep "^mem $G0R" | cut -d: -f2 | tr -d ' ' | tr '\n' ' ')
 first=$(echo "$out" | grep "^mem $G0R" | head -4 | cut -d: -f2 | tr -d ' ' | sort -u | tr '\n' ' ')
 fell=$(echo "$out" | grep "^mem $G0R" | cut -d: -f2 | awk '$1!="0D"' | wc -l)
@@ -295,7 +295,7 @@ check "a guard waits at a closing hole (first $first), never falls in ($fell bel
 # 16. A guard on a cable hangs from it hand over hand (its own poses).
 HH0=$(sym guard_h0_hr); HH1=$(sym guard_h1_hr); GSPR=$(off $GUARDS 4)
 out=$(run poke:$DS,01 poke:$JF,04 frames:2 poke:$JF,08 frames:2 poke:$JF,00 frames:4 \
-      poke:$(cell 13 18),040404040404040404 poke:$GUARDS,48A8 poke:$G0R,0D120000000000 frames:30 mem:$GSPR,2 frames:7 mem:$GSPR,2)
+      $SAFE poke:$(cell 13 18),040404040404040404 poke:$GUARDS,48A8 poke:$G0R,0D120000000000 frames:30 mem:$GSPR,2 frames:7 mem:$GSPR,2)
 p1=$(echo "$out" | bytes $GSPR 1); p2=$(echo "$out" | bytes $GSPR 2)
 check "a guard on a cable hangs from it (poses $p1, $p2: guard_h0 $HH0, guard_h1 $HH1)" \
       "{ [ $p1 = $HH0 ] || [ $p1 = $HH1 ]; } && { [ $p2 = $HH0 ] || [ $p2 = $HH1 ]; }"

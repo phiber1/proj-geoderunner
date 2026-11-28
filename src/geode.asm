@@ -128,7 +128,6 @@ cg_lim          rmb     1               ; guards.inc caught: how near is touchin
 cg_hole         rmb     1               ; ... the hero in a hole
 hi_buf          rmb     6               ; title.inc: GEODE.HI's bytes,
 hi_new          rmb     1               ; ... a new best to save
-st_lz           rmb     1               ; num3: leading zeros as blanks
 ed_s            rmb     2               ; the ending: a place on the screen,
 ed_n            rmb     1               ; ... a count,
 ed_hy           rmb     1               ; ... the hero's top row,
@@ -1327,14 +1326,10 @@ status_draw:                            ; (double height, as in the mock-up)
                 bsr     status_score
                 ldx     #TXT_AT(1,19)   ; the level: three digits
                 ldaa    level
-                clr     st_lz
                 bsr     num3
-                ldx     #TXT_AT(1,29)   ; the lives: up to three, no leading
-                ldaa    lives           ; zeros
-                ldab    #1
-                stab    st_lz
-; num3: A = a number, X = where: its three digits (st_lz set: leading
-; zeros as blanks; the last digit always shown)
+                ldx     #TXT_AT(1,29)   ; the lives: three digits too
+                ldaa    lives
+; num3: A = a number, X = where: its three digits
 num3:
                 clrb
 n3_b1:          cmpa    #100
@@ -1356,15 +1351,7 @@ n3_f2:          staa    st_n
                 tba
                 bsr     n3_dig
                 ldaa    st_n
-                clr     st_lz
-n3_dig:         tsta
-                bne     n3_d1
-                tst     st_lz
-                beq     n3_d1
-                ldaa    #' '
-                jmp     txt_char2
-n3_d1:          clr     st_lz
-                adda    #'0'
+n3_dig:         adda    #'0'
                 jmp     txt_char2
 
 status_score:
