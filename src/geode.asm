@@ -701,8 +701,12 @@ ed_b3:          ldx     #TXT_AT(120,ED_SHAFT) ; (the shaft behind him again)
 ed_b4:          stx     ed_s
                 ldaa    #T_LADDER
                 jsr     tile_put
+                ldx     ed_s            ; (and the brick either side: he
+                inx                     ; overlaps them)
+                ldaa    #T_BRICK
+                jsr     tile_put
                 ldx     ed_s
-                inx
+                dex
                 ldaa    #T_BRICK
                 jsr     tile_put
                 ldd     ed_s
@@ -713,9 +717,9 @@ ed_b4:          stx     ed_s
                 bne     ed_b4
                 ldaa    ed_hy
                 anda    #4              ; (hand over hand)
-                ldx     #hero_c0_hr0
+                ldx     #hero_c0_hr3
                 beq     ed_f2
-                ldx     #hero_c1_hr0
+                ldx     #hero_c1_hr3
 ed_f2:          ldab    ed_hy
                 jsr     ed_draw
                 ldaa    ed_hy
@@ -815,48 +819,51 @@ fw_f0:
                 jsr     wait
                 jmp     to_title
 
-; ed_draw: X = a pose (the hero's routines), B = his top row: drawn over
-; the shaft's column (the sky above the surface cleared first)
+; ed_draw: X = a pose (the hero's routines, drawn a pixel left of a
+; byte as the game draws him on a ladder: sprite_x), B = his top row:
+; drawn over the shaft (the sky above the surface cleared first)
 ed_draw:
                 stx     ed_j+1
                 ldaa    #32
                 mul
-                addd    #SCREEN+ED_SHAFT
+                addd    #SCREEN+ED_SHAFT-1
                 std     ed_s
-                ldx     #TXT_AT(ED_TOP-12,ED_SHAFT)
+                ldx     #TXT_AT(ED_TOP-12,ED_SHAFT-1)
                 ldaa    #24
-                ldab    #2
+                ldab    #3
                 jsr     box_clear
                 ldx     ed_s
 ed_j:           jmp     ed_j            ; (its routine: set above)
 
 ; ed_hop: after each chord (the jingle's hook): the next step of the dance
 ed_hop:
-                ldab    ed_i
+                ldab    ed_i            ; (three bytes a step)
+                tba
+                aslb
+                aba
+                tab
                 inc     ed_i
-                aslb
-                aslb
                 ldx     #ed_steps
                 abx
                 ldab    2,x
                 ldx     0,x
                 bra     ed_draw
-ed_steps:       fdb     hero_r0_hr0
-                fcb     ED_TOP-8, 0
-                fdb     hero_l0_hr0
-                fcb     ED_TOP, 0
-                fdb     hero_l0_hr0
-                fcb     ED_TOP-8, 0
-                fdb     hero_r0_hr0
-                fcb     ED_TOP, 0
-                fdb     hero_r1_hr0
-                fcb     ED_TOP-8, 0
-                fdb     hero_r1_hr0
-                fcb     ED_TOP, 0
-                fdb     hero_l0_hr0
-                fcb     ED_TOP-8, 0
-                fdb     hero_r1_hr0
-                fcb     ED_TOP, 0
+ed_steps:       fdb     hero_r0_hr3
+                fcb     ED_TOP-8
+                fdb     hero_l0_hr3
+                fcb     ED_TOP
+                fdb     hero_l0_hr3
+                fcb     ED_TOP-8
+                fdb     hero_r0_hr3
+                fcb     ED_TOP
+                fdb     hero_r1_hr3
+                fcb     ED_TOP-8
+                fdb     hero_r1_hr3
+                fcb     ED_TOP
+                fdb     hero_l0_hr3
+                fcb     ED_TOP-8
+                fdb     hero_r1_hr3
+                fcb     ED_TOP
 
 ; fw_all: every spark plotted in pl_cb
 fw_all:
