@@ -95,15 +95,28 @@ C_FILL2         equ     12
 
                 org     LOW
 #include "title_px.inc"
+#include "title.inc"                    ; (code too: it runs only on the title)
 lv_buf          rmb     LV_RECORD       ; a level as read
 lv_map          rmb     LV_CELLS        ; ... and unpacked, a cell a byte
 shadow          rmb     (SH_ROWS+2*SH_MARGIN)*ROW_BYTES ; draw.inc: patches built here
 tmap            rmb     LV_CELLS        ; ... every cell's tile, as drawn
-waytab          rmb     LV_CELLS        ; guards.inc: the ways along each floor
                 if      DEBUG
 replay_buf      rmb     RP_SIZE         ; test builds: inputs to replay (tools)
                 endif
 d12tab          rmb     D12_N           ; draw.inc: y / 12
+                if      * > LOW_END     ; (past it is the SD BIOS's flash
+                error   "LOW overflows" ; window: a table there reads back
+                endif                   ; wrong, as a 3 KB replay buffer did)
+
+; above the code: RAM free once the game runs (LOADM's own stack is there
+; while it loads, so nothing is loaded here: tables made at run time)
+HIGH_RAM        equ     $AE00
+HIGH_END        equ     $B000           ; ($B000 up isn't RAM to write here)
+                org     HIGH_RAM
+waytab          rmb     LV_CELLS        ; guards.inc: the ways along each floor
+                if      * > HIGH_END
+                error   "HIGH_RAM overflows"
+                endif
 
                 org     BSS
 level           rmb     1               ; 1..NLEVELS
@@ -1476,7 +1489,6 @@ s_congr3:       fcc     "SCORE"
 #include "holes.inc"
 #include "guards.inc"
 #include "draw.inc"
-#include "title.inc"
 #include "gfx.asm"
 #include "frame.asm"
 #include "sound.asm"
