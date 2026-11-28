@@ -279,6 +279,12 @@ p1=$(echo "$out" | bytes $GSPR 1); p2=$(echo "$out" | bytes $GSPR 2)
 check "a guard on a cable hangs from it (poses $p1, $p2: guard_h0 $HH0, guard_h1 $HH1)" \
       "{ [ $p1 = $HH0 ] || [ $p1 = $HH1 ]; } && { [ $p2 = $HH0 ] || [ $p2 = $HH1 ]; }"
 
+# 16b. A trapped guard kills too, touched from beside: the hero drops into
+#      an open hole next to a guard trapped in his (bottom floor, columns
+#      29 and 30), side by side: caught (the owner: he passed through him).
+out=$(run poke:$GUARDS,74B474B4 poke:$(off $GUARDS 8),0E1D00000000 poke:$G0ST,01C8 poke:$(cell 14 29),00 poke:$(cell 14 30),00 frames:240 mem:$LI,1)
+check "dropping into the hole beside a trapped guard: caught (lives $(echo "$out" | byte $LI 1))" "[ $(echo "$out" | byte $LI 1) = 2 ]"
+
 # 17. The hero can stand on a guard's head (a guard at (13, 20), the hero
 #     put just above him), walk off unharmed, and dies pressing down.
 HEAD="poke:$GUARDS,50A8 poke:$G0R,0D140000000000 poke:$HERO,509C poke:$HR,0C14"

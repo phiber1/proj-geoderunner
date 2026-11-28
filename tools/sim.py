@@ -563,9 +563,7 @@ class Game:
                 self.score += 75
 
     def caught(self):
-        for gd in self.guards:
-            if gd.st:
-                continue
-            if abs(gd.x - self.x) <= 3 and abs(gd.y - self.y) <= 8:
+        for gd in self.guards:      # (trapped ones too: in the hole beside)
+            if abs(gd.x - self.x) <= (4 if gd.st else 3) and abs(gd.y - self.y) <= 8:
                 return True
         return False

@@ -1111,19 +1111,22 @@ rnd:
 rnd_f1:         std     seed
                 rts
 
-; caught: Z clear if a free guard touches the hero (within a cell's width
+; caught: Z clear if a guard touches the hero (within a cell's width
 ; across and most of its height down)
 caught:
                 ldx     #guards
                 ldab    nguard
                 beq     cg_no
-cg_b1:          ldaa    G_ST,x
-                bne     cg_next         ; (trapped guards don't)
+cg_b1:          ldaa    #3              ; (a trapped guard: in the hole beside
+                tst     G_ST,x          ; his, a cell across, is touching him
+                beq     cg_f0           ; too: the owner; standing on his head
+                inca                    ; is a cell above, out of reach)
+cg_f0:          staa    cg_lim
                 ldaa    A_X,x
                 suba    h_x
                 bpl     cg_f1
                 nega
-cg_f1:          cmpa    #3
+cg_f1:          cmpa    cg_lim
                 bhi     cg_next
                 ldaa    A_Y,x
                 suba    h_y
