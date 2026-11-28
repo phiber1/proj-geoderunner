@@ -26,7 +26,7 @@ sys.path.insert(0, HERE)
 import sim                      # noqa: E402
 import solve                    # noqa: E402
 
-KEEP = {53, 96, 149, 150}
+KEEP = {53, 96, 113, 149, 150}
 EARLY = 600                     # (frames: the opening 10 s)
 WINDOW = 6                      # (neighbors either side compared with)
 TALL = 9                        # (a ladder this many rows or more ...)
