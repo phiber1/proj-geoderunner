@@ -868,6 +868,9 @@ REROLL = {47: 1,       # (47: four guards camped the one way to the exit: the so
           100: 3,      # (100: the first had a guard parked in a dead-end corner)
           104: 1,      # (104: the solver found no way)
           105: 1,      # (105, 121: none a player could do: with a
+          116: 26,     # (116, played at 148: its guards were handed the
+                       # geodes at once, one ladder off the ground floor and
+                       # they came down it, stone across the middle: the owner)
           121: 2}      # player's reactions the solver found no way)
 
 
