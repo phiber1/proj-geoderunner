@@ -862,8 +862,9 @@ def candidate(n, seed):
 # first ones unfair (level: a number mixed into its seeds)
 REROLL = {47: 1,       # (47: four guards camped the one way to the exit: the solver found no way)
           48: 1,       # (48: three guards closed on the start at once: no way)
-          84: 2,       # (84, played at 96: its way needed respawns to fall right;
-                       # the next far harder than its neighbors)
+          84: 25,      # (84, played at 96: its way needed respawns to fall right;
+                       # the next far harder than its neighbors; then one whose
+                       # guards were handed the geodes at once)
           100: 3,      # (100: the first had a guard parked in a dead-end corner)
           104: 1,      # (104: the solver found no way)
           105: 1,      # (105, 121: none a player could do: with a
@@ -872,14 +873,7 @@ REROLL = {47: 1,       # (47: four guards camped the one way to the exit: the so
 
 # levels touched up by hand after they're made: (row, col, cell) changes
 # (tools/trapfit.py moves a guard prison off the patrol path)
-EDITS = {84: [(13, 2, '.'),     # (84, played at 96: nine geodes, not ten:
-                        # the one in the stone corner gone (the owner: ten "too
-                        # hard", eight "too procedurally easy for a level 96");
-               (7, 17, 'B'), (8, 17, '.'), (9, 17, '.'), (10, 17, '.')]
-               # and the stone under its geodes' walkways brick (the owner:
-               # its scattered solid floors left nowhere to trap a guard)
-               + [(7, c, 'B') for c in range(0, 5)] + [(7, c, 'B') for c in range(24, 29)]
-               + [(14, c, 'B') for c in range(10, 15)] + [(14, c, 'B') for c in range(17, 20)]}
+EDITS = {}
                         # and its ladder from top to bottom just off the middle
                         # cut through the middle floors: an express lane for
                         # the guards to every quadrant (the owner); now they
