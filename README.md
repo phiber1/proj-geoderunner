@@ -6,11 +6,18 @@ Run, climb and dig through a cavern to collect every geode and escape
 upward, level after level, while the guards close in.  Built on
 [mc10-game-engine](https://github.com/phiber1/mc10-game-engine).
 
-**Status: early development.**  Nothing playable yet.
-
 **Needs:** an MC-10 with the 8K internal RAM mod and an MCX32-SD (or the
 [VMC10 for Linux](https://github.com/phiber1/vmc10-linux) emulator with
 `--8k --mcx32sd`).
+
+## Playing
+
+`release/` has the game: copy `GEODE.BIN` and `LEVELS.DAT` to the SD card
+and type `RUNM"GEODE"`.  `release/geoderunner.pdf` has the rules on one
+page.  A and S walk, W and Z climb, SPACE digs (hold A or S with it to
+choose the side), BREAK gives up a level.  A PiKey-10's joystick works
+too.  Collect every geode, then climb the exit ladder out; finishing
+level 150 earns a proper celebration.
 
 ## Building
 
@@ -18,34 +25,34 @@ upward, level after level, while the guards close in.  Built on
     cd proj-geoderunner
     make            # build/geode.bin (GEODE.BIN on the SD card: RUNM"GEODE")
     make run        # in the emulator (VMC10=path to vmc10-linux, default ~/vmc10-linux)
-    make check      # headless checks: the screen and tile map after play, movement,
-                    # digging, guards, geodes, the exit, lives, memory, speed
+    make check      # headless checks: drawing, movement, digging, guards,
+                    # geodes, the exit, lives, the title, memory, speed
+    make release    # release/: the release build, LEVELS.DAT and the one-pager
 
 Needs `asl` (the Macroassembler AS), a C compiler, cpp and Python 3 (with
-Pillow for the mock-ups).  Also: `make run-view` (the sprites),
-`make run-mockup_blue` (an early still mock-up of a level), `make sheet`
-(`build/levels.png`: a contact sheet of generated levels).  The default
-build is a test build: N followed by three digits (`N041`) jumps to that
-level; `make DEBUG=0` builds without it.
+Pillow); `make docs` (the one-pager) needs Chromium.  The default build
+is a test build: N followed by three digits (`N041`) jumps to that level;
+`make DEBUG=0` builds without it.  Also: `make run-view` (the sprites),
+`make sheet` (`build/levels.png`: a contact sheet of the levels).
 
-Levels are generated: level N is always the same level, made by
-`tools/levelgen.py` (a Python prototype of the generator the game will
-carry).  The first levels are gentle; new styles join every ten levels: floors,
-staggered ledges, rooms walled with stone, a brick pyramid with hidden
-chambers, caverns dug out of solid rock, mirror images, and every 10th
-level a message spelled out in ladders.  Geodes are only placed where the
-hero can both reach and leave, so every level can be finished.  Now and
-then, from level 4, a geode sits in a sealed brick vault: dig through
-the roof to get in (from level 15 some roofs are two bricks deep: dig two
-holes side by side, drop into one and dig under the other), then dig out
-through the floor.
+## The levels
 
-There are 150 levels, and finishing the last one earns a proper
-congratulation.  `make levels` writes them to `build/LEVELS.DAT` (36 KB,
-240 bytes a level), which goes on the SD card with the game: starting a
-level reads its 240 bytes.  The generator uses its own random numbers, so the
-file comes out the same byte for byte every time it is built.
+The 150 levels are made by `tools/levelgen.py` and written to
+`build/LEVELS.DAT` (`make levels`; 240 bytes a level, the same byte for
+byte every build).  New styles join as the game goes on: floors,
+staggered ledges, rooms walled with stone, a brick pyramid, caverns dug
+out of solid rock, mirror images, and every 10th level a message spelled
+out in ladders.  Some geodes sit in sealed brick vaults, a few with roofs
+two bricks deep.
 
-## Licence
+Every level is checked to be beatable: `tools/sim.py` reproduces the
+game's rules exactly (`make simcheck` compares it with the real game,
+game loop by game loop), and `tools/solve.py` searches for a way through
+each level, playing with a person's reaction time rather than a
+machine's.  Every way it finds is then replayed on the real game in the
+emulator, and must win there.  The levels come in order of how hard they
+press the player, with a few gentler ones along the way.
+
+## License
 
 Public domain (Unlicense): see `LICENSE`.

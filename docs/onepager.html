@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Geode Runner</title>
+<!-- The one-pager: "make docs" renders it to docs/geoderunner.pdf (US
+     Letter) with headless Chromium; the pictures come from tools/shots.py. -->
+<style>
+  @page { size: 8.5in 11in; margin: 0; }
+  :root {
+    --cave: #1c1ca8; --deep: #10106a; --brick: #a8282a; --gold: #f0e070; --moss: #2fc23a;
+    --ink: #1c2030; --soft: #5a6078; --paper: #fbfaf6; --tint: #eef0fb; --warm: #fbf3e2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 8.5in; height: 11in; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font: 9.3pt/1.38 "Noto Sans", "DejaVu Sans", sans-serif;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    display: flex; flex-direction: column;
+  }
+  /* the header: the title screen on the cave's blue, a band of brick below */
+  header {
+    background: var(--cave); color: #fff; flex-shrink: 0;
+    padding: 0.26in 0.5in 0.2in; border-bottom: 0.1in solid var(--brick);
+  }
+  .top { display: flex; align-items: center; gap: 0.32in; }
+  .logo { width: 3.3in; image-rendering: pixelated; display: block; border: 2px solid var(--deep); }
+  .tag { flex: 1; }
+  .tag .kicker { color: var(--gold); font-weight: 700; letter-spacing: 0.16em; font-size: 8pt; text-transform: uppercase; }
+  .tag h1 { font: 800 17pt/1.15 "Noto Sans Display", "Noto Sans", sans-serif; margin: 4px 0 6px; }
+  .tag p { color: #d4d6f0; font-size: 9.2pt; }
+  .strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.16in; margin-top: 0.18in; }
+  figure img { width: 100%; display: block; image-rendering: pixelated; border: 2px solid var(--deep); }
+  figcaption { font-size: 7.6pt; color: #c4c6e6; margin-top: 3px; text-align: center; }
+
+  main { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.28in; padding: 0.22in 0.5in 0.1in; }
+  section { margin-bottom: 0.15in; }
+  h2 {
+    font: 800 11pt/1.2 "Noto Sans Display", "Noto Sans", sans-serif; letter-spacing: 0.04em;
+    color: var(--brick); text-transform: uppercase; margin: 0 0 5px;
+  }
+  p + p { margin-top: 5px; }
+  ul { list-style: none; }
+  li { padding-left: 13px; position: relative; margin-bottom: 3px; }
+  li::before { content: ""; position: absolute; left: 1px; top: 0.52em; width: 6px; height: 6px; background: var(--gold); border: 1px solid #b8a440; transform: rotate(45deg); }
+  .keys { width: 100%; border-collapse: collapse; margin-top: 2px; }
+  .keys td { padding: 3px 6px 3px 0; vertical-align: top; }
+  .keys td:first-child { white-space: nowrap; font-weight: 700; width: 1.15in; }
+  kbd {
+    display: inline-block; min-width: 1.6em; padding: 0 4px; text-align: center;
+    font: 700 8.4pt/1.5 "DejaVu Sans Mono", monospace; background: #fff;
+    border: 1px solid #b8bcc8; border-bottom-width: 2px; border-radius: 3px;
+  }
+  .box { background: var(--tint); border-left: 4px solid var(--cave); padding: 7px 10px; }
+  .warm { background: var(--warm); border-left-color: var(--brick); }
+  .score { width: 100%; border-collapse: collapse; }
+  .score td { padding: 3px 0; border-bottom: 1px solid #e2e3ea; }
+  .score td:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  code { font: 8.6pt "DejaVu Sans Mono", monospace; background: #fff; border: 1px solid #dcdee6; padding: 0 3px; border-radius: 2px; }
+  footer { flex-shrink: 0; padding: 0.08in 0.5in 0.22in; color: var(--soft); font-size: 7.8pt; display: flex; justify-content: space-between; border-top: 1px solid #e2e3ea; margin: 0 0.5in; padding-left: 0; padding-right: 0; }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <img class="logo" src="img/title.png" alt="The title screen">
+    <div class="tag">
+      <div class="kicker">An Abene game for the TRS-80 MC-10</div>
+      <h1>Dig, climb and run. Take every geode and escape the mine.</h1>
+      <p>150 levels of ladders, cables, brick and guards. Every level can be finished, and the best ones are puzzles you'll want to solve again.</p>
+    </div>
+  </div>
+  <div class="strip">
+    <figure><img src="img/play.png" alt="Level 1"><figcaption>Level 1: geodes, ladders and a guard</figcaption></figure>
+    <figure><img src="img/vault.png" alt="Level 53"><figcaption>Later levels hide geodes in vaults</figcaption></figure>
+    <figure><img src="img/ending.png" alt="The ending"><figcaption>Make it out after level 150</figcaption></figure>
+  </div>
+</header>
+
+<main>
+  <div>
+    <section>
+      <h2>Getting started</h2>
+      <p>Needs an MC-10 with the 8K internal RAM mod and an MCX32-SD, or the VMC10 for Linux emulator run with <code>--8k --mcx32sd</code>. Copy <code>GEODE.BIN</code> and <code>LEVELS.DAT</code> to the SD card and type <code>RUNM"GEODE"</code>. Press <kbd>SPACE</kbd> on the title screen to start.</p>
+    </section>
+    <section>
+      <h2>Controls</h2>
+      <table class="keys">
+        <tr><td><kbd>A</kbd> <kbd>S</kbd></td><td>Walk left and right, or hang along a cable.</td></tr>
+        <tr><td><kbd>W</kbd> <kbd>Z</kbd></td><td>Climb up and down ladders. <kbd>Z</kbd> also lets go of a cable or a ladder.</td></tr>
+        <tr><td><kbd>SPACE</kbd></td><td>Dig the brick beside your feet, on the side you face. Hold <kbd>A</kbd> or <kbd>S</kbd> with it to choose the side.</td></tr>
+        <tr><td><kbd>BREAK</kbd></td><td>Give up the level (it costs a life).</td></tr>
+      </table>
+      <p style="margin-top:5px">A joystick works through a PiKey-10, which maps it to the same keys.</p>
+    </section>
+    <section>
+      <h2>The goal</h2>
+      <p>Collect every geode on the level. When the last one is yours, the exit ladder grows up to the top of the screen. Climb it out to finish the level and earn a bonus and an extra life.</p>
+    </section>
+    <section>
+      <h2>Digging</h2>
+      <ul>
+        <li>You dig the brick next to your feet, never the one under you. Stone can't be dug, and neither can the brick under a ladder or a geode.</li>
+        <li>A hole stays open for about five seconds, then fills in again. Anything still inside it when it closes is buried.</li>
+        <li>To go down through a floor, dig beside you, step into the hole and dig again.</li>
+        <li>Some geodes sit in sealed brick vaults. Dig through the roof to get in, and through the floor to get out. Where a roof is two bricks thick, dig two holes side by side, drop into one and dig under the other.</li>
+      </ul>
+    </section>
+  </div>
+  <div>
+    <section>
+      <h2>The guards</h2>
+      <ul>
+        <li>Guards chase you everywhere. If one touches you, you lose a life.</li>
+        <li>A guard who walks into a hole is trapped for a few seconds, then climbs out. You can walk across a trapped guard's head, but don't drop into the hole beside his.</li>
+        <li>If a hole fills in with a guard inside, he's buried and reappears somewhere along the top of the screen.</li>
+        <li>Guards pick up geodes they walk over. A trapped guard drops the one he carries. Otherwise he puts it down after a while, wherever he can.</li>
+        <li>A geode dropped where you can never reach it, such as in a pit with no way out, is lost, and so is the level.</li>
+      </ul>
+    </section>
+    <section>
+      <h2>Scoring</h2>
+      <table class="score">
+        <tr><td>A geode</td><td>250</td></tr>
+        <tr><td>A guard buried in a hole</td><td>75</td></tr>
+        <tr><td>Escaping a level</td><td>1,500 and an extra life</td></tr>
+      </table>
+      <p style="margin-top:5px">You start with three lives. The title screen shows the best score.</p>
+    </section>
+    <section>
+      <div class="box">
+        <h2 style="color:var(--cave)">Hints</h2>
+        <ul>
+          <li>The guards don't move until you do. Study the whole level before you take your first step.</li>
+          <li>Lead guards over a row of holes and you can catch several at once.</li>
+          <li>Find places where you can keep the guards circling while you plan your next move.</li>
+          <li>Watch which guard is carrying a geode before you trap him for good.</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+</main>
+<footer><span>Geode Runner &middot; An Abene game &middot; Public domain (Unlicense)</span><span>github.com/phiber1/proj-geoderunner</span></footer>
+</body>
+</html>

@@ -15,6 +15,10 @@
 #   make levels          build/LEVELS.DAT: the game's 150 levels (NLEVELS=...);
 #                        the game reads its levels from it
 #   make DEBUG=0         release build: no debug-port writes, no N level jump
+#   make release         release/: the release build, LEVELS.DAT and the
+#                        one-pager (docs/geoderunner.pdf: make docs, headless
+#                        Chromium; its pictures: make shots)
+#   make run-release     run release/ in the emulator
 #
 # On the SD card the game is GEODE.BIN (RUNM"GEODE").
 
@@ -125,8 +129,31 @@ simcheck: build/LEVELS.DAT
 check: build/geode.bin build/LEVELS.DAT
 	VMC10=$(VMC10) sh tests/check.sh
 
+# The one-pager: docs/onepager.html -> docs/geoderunner.pdf (headless
+# Chromium; the pictures in docs/img come from tools/shots.py: make shots)
+CHROME  ?= chromium
+docs: docs/geoderunner.pdf
+docs/geoderunner.pdf: docs/onepager.html $(wildcard docs/img/*.png)
+	$(CHROME) --headless --disable-gpu --no-pdf-header-footer --print-to-pdf=$@ $<
+shots: build/geode.bin build/LEVELS.DAT
+	VMC10=$(VMC10) python3 tools/shots.py
+
+# The release: a DEBUG=0 build of the game, its levels and the one-pager,
+# in release/ (kept in the repository)
+release: docs/geoderunner.pdf build/LEVELS.DAT
+	$(MAKE) --no-print-directory DEBUG=0 build/geode.bin
+	mkdir -p release
+	cp build/geode.bin release/GEODE.BIN
+	cp build/LEVELS.DAT release/LEVELS.DAT
+	cp docs/geoderunner.pdf release/geoderunner.pdf
+	$(MAKE) --no-print-directory build/geode.bin
+run-release:
+	mkdir -p $(SD)
+	cp release/GEODE.BIN release/LEVELS.DAT $(SD)/
+	$(EMU) --mcx32sd --8k --sd $(SD) --type 'RUNM"GEODE"\n'
+
 clean:
 	rm -rf build
 
-.PHONY: simcheck all check clean run sheet levels FORCE
+.PHONY: simcheck all check clean run sheet levels docs shots release run-release FORCE
 .PRECIOUS: build/%.s build/%.p build/%_spr.inc build/%.bin
