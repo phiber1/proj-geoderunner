@@ -50,7 +50,7 @@ if __name__ == '__main__':
     levels = [int(a) for a in args] or list(range(1, 151))
     won, unsolved, failed = [], [], []
     pg = progress.Progress(len(levels))
-    with Pool(20, initializer=progress.init, initargs=(pg.running,)) as p:
+    with Pool(progress.workers(), initializer=progress.init, initargs=(pg.running,)) as p:
         for n, loops, npr, secs, ok in p.imap_unordered(one, levels):
             if loops is None:
                 unsolved.append(n)

@@ -18,6 +18,7 @@ from multiprocessing import Pool
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import solve                    # noqa: E402
+import progress                 # noqa: E402
 import levelgen as L            # noqa: E402
 
 NEAR = 4                        # (no geode this near the new pit's mouth, on its row)
@@ -141,7 +142,7 @@ if __name__ == '__main__':
         for r, c, ch in e:
             h[r][c] = ch
         jobs.append((n, [''.join(r) for r in h], fill + e))
-    with Pool(20) as p:
+    with Pool(progress.workers()) as p:
         got = [x for x in p.map(score, jobs) if x]
     got.sort(key=lambda d: (d['locked'] + d['chance']) * 4 - d['jailed'] * 0.1)
     for d in got[:8]:

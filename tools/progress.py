@@ -91,6 +91,15 @@ class Progress:
 _running = None
 
 
+def workers():
+    """processes for a long run: GEODE_JOBS (default 8: twenty at once
+    heat-soaked the owner's liquid loop, 28 C to 39 C and climbing)"""
+    try:
+        return max(1, int(os.environ.get('GEODE_JOBS', '8')))
+    except ValueError:
+        return 8
+
+
 def background():
     """the lowest priority (nice 19): a long run takes only what's left over,
     never a frame from the emulator the owner is playing in (it once

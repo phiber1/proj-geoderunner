@@ -71,7 +71,7 @@ if __name__ == '__main__':
     levels = [int(a) for a in sys.argv[1:]] or list(range(1, 151))
     won = {}
     pg = progress.Progress(len(levels))
-    with Pool(20, initializer=progress.init, initargs=(pg.running,)) as p:
+    with Pool(progress.workers(), initializer=progress.init, initargs=(pg.running,)) as p:
         for n, k, note in p.imap_unordered(one, levels):
             won[n] = k
             pg.print('level %3d: won under %d of %d respawn seeds (%s)' % (n, k, len(SEEDS), note))

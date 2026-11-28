@@ -13,6 +13,7 @@ from multiprocessing import Pool
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import sim                      # noqa: E402
 import solve                    # noqa: E402
 import levelgen                 # noqa: E402
 import progress                 # noqa: E402
@@ -35,6 +36,21 @@ KEEP = {53, 149, 150}
 # harder than its neighbors): how hard it presses the hero
 # (tools/pressure.py) no more than MAX_PRESSURE when given (--max-pressure P)
 MAX_PRESSURE = None
+# ... and not hand the guards the geodes at once (the owner on 96: both
+# guards coming down were always carrying one by the bottom, the one by
+# the vault another): at most MAX_EARLY geodes picked up by guards in the
+# first EARLY frames of the way found (--max-early N)
+MAX_EARLY = None
+EARLY = 600
+
+
+def early_carries(rows, joys):
+    g = sim.Game(rows)
+    for j in joys[:EARLY]:
+        g.step(j)
+        if g.dead or g.done:
+            break
+    return g.events.get('carry', 0)
 
 
 def pressure(rows):
@@ -56,6 +72,8 @@ def one(n):
         joys, g = solve.solve_hard(rows, tries=SEARCHES, react=REACT)
         if joys is None:
             continue
+        if MAX_EARLY is not None and early_carries(rows, joys) > MAX_EARLY:
+            continue
         pr = solve.pairs(joys)
         if solve.verify(n, pr, rows):
             with open(os.path.join(solve.ROOT, 'build', 'solutions', '%d.txt' % n), 'w') as f:
@@ -67,8 +85,11 @@ def one(n):
 if __name__ == '__main__':
     os.makedirs(os.path.join(solve.ROOT, 'build', 'solutions'), exist_ok=True)
     args = sys.argv[1:]
-    if args[:1] == ['--max-pressure']:
-        MAX_PRESSURE = float(args[1])
+    while args[:1] in (['--max-pressure'], ['--max-early']):
+        if args[0] == '--max-pressure':
+            MAX_PRESSURE = float(args[1])
+        else:
+            MAX_EARLY = int(args[1])
         args = args[2:]
     levels = [int(a) for a in args]
     for n in sorted(set(levels) & KEEP):
@@ -77,7 +98,7 @@ if __name__ == '__main__':
     if not levels:
         sys.exit(0)
     pg = progress.Progress(len(levels))
-    with Pool(min(20, len(levels)), initializer=progress.init, initargs=(pg.running,)) as p:
+    with Pool(min(progress.workers(), len(levels)), initializer=progress.init, initargs=(pg.running,)) as p:
         for n, k, style, loops, secs in p.imap_unordered(one, levels):
             if k is None:
                 pg.print('level %3d: no reroll solved (%.0f s)' % (n, secs))

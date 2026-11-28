@@ -92,7 +92,7 @@ if __name__ == '__main__':
     levels = [int(a) for a in sys.argv[1:]] or list(range(1, 151))
     out = {}
     pg = progress.Progress(len(levels))
-    with Pool(20, initializer=progress.init, initargs=(pg.running,)) as p:
+    with Pool(progress.workers(), initializer=progress.init, initargs=(pg.running,)) as p:
         for n, m in p.imap_unordered(measure, levels):
             out[n] = m
             if m is None:
