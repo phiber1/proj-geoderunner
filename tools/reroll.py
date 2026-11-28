@@ -30,8 +30,9 @@ REACT = 8
 # four guards, up to three times: a skill the level teaches; 149: its long
 # cables and the pit in the middle, where a guard carrying a geode mustn't
 # be trapped; 150: one guard buried on purpose, so he's back at the top when
-# the hero drops through the middle floor onto the other three)
-KEEP = {53, 149, 150}
+# the hero drops through the middle floor onto the other three; 96: top
+# first, then down, ending with all four guards buried in a row of holes)
+KEEP = {53, 96, 149, 150}
 # a new layout must also fit its slot (owner, on the first new 96: far
 # harder than its neighbors): how hard it presses the hero
 # (tools/pressure.py) no more than MAX_PRESSURE when given (--max-pressure P)
