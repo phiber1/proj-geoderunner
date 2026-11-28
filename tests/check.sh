@@ -75,6 +75,16 @@ check "digging: $(echo "$out" | bytes $(cell 14 29) 1) (digging), $(echo "$out" 
 r=$(integrity $D/s5)
 check "after a hole dug and filled: $r" "[ \"$r\" = 'tmap_bad=0 screen_bad=0' ]"
 
+# 4b. The hidden level select: MC10 typed on the title, then a level (096)
+#     starts the game there, a game that won't count for the best score;
+#     an ordinary SPACE starts at level 1.
+out=$($H $R/MC10.BIN mcx32sd:$R/mcx32sd_flash.bin 8k sd:$SD frames:200 'type:RUNM"GEODE"\n' frames:240 'type:MC10096' frames:120 mem:$LV,1 mem:$(sym chosen),1)
+check "MC10 096 on the title: level $(echo "$out" | byte $LV 1) (chosen $(echo "$out" | byte $(sym chosen) 1))" \
+      "[ $(echo "$out" | byte $LV 1) = 96 ] && [ $(echo "$out" | byte $(sym chosen) 1) != 0 ]"
+out=$(run frames:30 mem:$LV,1 mem:$(sym chosen),1)
+check "SPACE on the title: level $(echo "$out" | byte $LV 1) (chosen $(echo "$out" | byte $(sym chosen) 1))" \
+      "[ $(echo "$out" | byte $LV 1) = 1 ] && [ $(echo "$out" | byte $(sym chosen) 1) = 0 ]"
+
 # 5b. A quick SPACE tap in the middle of a step isn't lost: the step is
 #     done at once and it digs from the next cell (left, the way he
 #     walked), now, not when he'd have got there.

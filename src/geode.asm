@@ -107,6 +107,10 @@ d12tab          rmb     D12_N           ; draw.inc: y / 12
 
                 org     BSS
 level           rmb     1               ; 1..NLEVELS
+start_lv        rmb     1               ; title.inc: the level a game starts at
+chosen          rmb     1               ; ... nonzero: chosen (MC10): no best score
+ls_i            rmb     1               ; title.inc: MC10 typed so far, keys,
+ls_was          rmb     1               ; ... the key held last frame
 lv_pb           rmb     PB_SIZE         ; the BIOS parameter block
 up_s            rmb     2               ; unpacking: from, to
 up_d            rmb     2
@@ -276,7 +280,7 @@ start:
 to_title:
                 jsr     title
 new_game:
-                ldaa    #1
+                ldaa    start_lv        ; (1, or the level chosen on the title)
                 staa    level
                 ldaa    #3
                 staa    lives
@@ -536,60 +540,16 @@ dd_f1:          jmp     new_level       ; the level again
 ; level; shown in red where the level number is.  A number out of range
 ; (000 to cancel) goes back to the game.
 goto_level:
-                clr     gl_i
-                ldaa    #$FF
-                staa    gl_was
-                ldaa    #COLOR_BYTE(CG_RED)
-                staa    txt_col
                 ldx     #TXT_AT(1,20)
-                ldaa    #'-'
-                jsr     txt_char2
-                ldaa    #'-'
-                jsr     txt_char2
-                ldaa    #'-'
-                jsr     txt_char2
-                ldx     #TXT_AT(1,20)
-                stx     gl_x
-gl_b1:          jsr     frame_wait
-                jsr     snd_frame
-                jsr     key_digit
-                cmpa    gl_was          ; (on the press)
-                beq     gl_b1
-                staa    gl_was
-                cmpa    #$FF
-                beq     gl_b1
-                ldab    gl_i
-                ldx     #gl_d
-                abx
-                staa    0,x
-                adda    #'0'
-                ldx     gl_x
-                jsr     txt_char2
-                stx     gl_x
-                inc     gl_i
-                ldaa    gl_i
-                cmpa    #3
-                bne     gl_b1
-                ldaa    gl_d            ; hundreds * 100 + tens * 10 + ones
-                ldab    #100
-                mul
-                std     ca_p
-                ldaa    gl_d+1
-                ldab    #10
-                mul
-                addd    ca_p
-                addb    gl_d+2
-                adca    #0
-                tsta                    ; 1 .. NLEVELS?
-                bne     gl_no
+                jsr     read_level
                 tstb
                 beq     gl_no
-                cmpb    #NLEVELS+1
-                bcc     gl_no
                 stab    level
                 jmp     new_level
 gl_no:          jsr     status_draw
                 jmp     loop
+
+                endif
 
 ; key_digit: A = the digit key held (0-9), $FF if none (0-7: columns 0-7
 ; of row 4; 8, 9: columns 0, 1 of row 5)
@@ -622,7 +582,61 @@ kd_hi:          tba
 kd_r:           ldab    #$FF
                 stab    P1DAT
                 rts
-                endif
+
+; read_level: X = where: three digits typed there (041), shown in red
+; over "---"; B = that level, or 0 if it's no level (000 to cancel)
+read_level:
+                clr     gl_i
+                stx     gl_x
+                jsr     key_digit       ; (a key still down from before, the
+                staa    gl_was          ; 0 of MC10 say, waits to be let go)
+                ldx     gl_x
+                ldaa    #COLOR_BYTE(CG_RED)
+                staa    txt_col
+                stx     gl_x
+                ldaa    #'-'
+                jsr     txt_char2
+                ldaa    #'-'
+                jsr     txt_char2
+                ldaa    #'-'
+                jsr     txt_char2
+rl_b1:          jsr     frame_wait
+                jsr     snd_frame
+                jsr     key_digit
+                cmpa    gl_was          ; (on the press)
+                beq     rl_b1
+                staa    gl_was
+                cmpa    #$FF
+                beq     rl_b1
+                ldab    gl_i
+                ldx     #gl_d
+                abx
+                staa    0,x
+                adda    #'0'
+                ldx     gl_x
+                jsr     txt_char2
+                stx     gl_x
+                inc     gl_i
+                ldaa    gl_i
+                cmpa    #3
+                bne     rl_b1
+                ldaa    gl_d            ; hundreds * 100 + tens * 10 + ones
+                ldab    #100
+                mul
+                std     ca_p
+                ldaa    gl_d+1
+                ldab    #10
+                mul
+                addd    ca_p
+                addb    gl_d+2
+                adca    #0
+                tsta                    ; 1 .. NLEVELS?
+                bne     rl_no
+                cmpb    #NLEVELS+1
+                bcs     rl_r
+rl_no:          clrb
+rl_r:           rts
+
 
 ; every level done: a congratulation (for now), then a new game
 congrats:
