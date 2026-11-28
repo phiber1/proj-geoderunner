@@ -111,6 +111,22 @@ start_lv        rmb     1               ; title.inc: the level a game starts at
 chosen          rmb     1               ; ... nonzero: chosen (MC10): no best score
 ls_i            rmb     1               ; title.inc: MC10 typed so far, keys,
 ls_was          rmb     1               ; ... the key held last frame
+ed_s            rmb     2               ; the ending: a place on the screen,
+ed_n            rmb     1               ; ... a count,
+ed_hy           rmb     1               ; ... the hero's top row,
+ed_i            rmb     1               ; ... the dance's step,
+fw_k            rmb     1               ; ... fireworks left,
+fw_s            rmb     1               ; ... a burst's steps left,
+fw_cx           rmb     1               ; ... its middle,
+fw_cy           rmb     1
+fw_x            rmb     8               ; ... its sparks (x, then y)
+fw_y            rmb     8
+pl_x            rmb     1               ; plot: x,
+pl_a            rmb     2               ; ... the byte,
+pl_m            rmb     1               ; ... its pixel's bits,
+pl_t            rmb     1
+pl_cb           rmb     1               ; ... the color (a byte of it)
+jg_hook         rmb     2               ; jingle: called after each note (0: no)
 lv_pb           rmb     PB_SIZE         ; the BIOS parameter block
 up_s            rmb     2               ; unpacking: from, to
 up_d            rmb     2
@@ -638,28 +654,285 @@ rl_no:          clrb
 rl_r:           rts
 
 
-; every level done: a congratulation (for now), then a new game
+; every level done: the ending (the owner's design): the hero climbs up
+; a ladder out of the mine to the surface, dances to a chorded fanfare
+; (a hop on each chord: the two-voice tone needs the whole CPU, so the
+; hops land between the chords), then fireworks burst in the sky
+ED_SHAFT        equ     15              ; the ladder's column
+ED_TOP          equ     108             ; the hero on the surface (row 120)
 congrats:
                 jsr     gfx_cls
                 ldaa    #COLOR_BYTE(CG_YELLOW)
                 staa    txt_col
-                ldx     #TXT_AT(60,8)
+                ldx     #TXT_AT(2,8)
                 ldd     #s_congr1
                 jsr     txt_str2
-                ldx     #TXT_AT(84,5)
+                ldx     #TXT_AT(20,5)
                 ldd     #s_congr2
                 jsr     txt_str2
-                ldx     #TXT_AT(108,9)
+                ldx     #TXT_AT(38,9)
                 ldd     #s_congr3
                 jsr     txt_str2
-                ldx     #TXT_AT(108,19)
+                ldx     #TXT_AT(38,15)
                 jsr     score_put
-                jsr     hi_check
-                ldaa    #255
+                ldx     #TXT_AT(120,0)  ; the ground: six rows of brick, the
+                stx     ed_s            ; ladder up through them
+ed_b1:          clr     ed_n
+ed_b2:          ldx     ed_s
+                ldab    ed_n
+                abx
+                ldaa    #T_BRICK
+                cmpb    #ED_SHAFT
+                bne     ed_f1
+                ldaa    #T_LADDER
+ed_f1:          jsr     tile_put
+                inc     ed_n
+                ldaa    ed_n
+                cmpa    #32
+                bne     ed_b2
+                ldd     ed_s
+                addd    #12*ROW_BYTES
+                std     ed_s
+                subd    #TXT_AT(192,0)
+                bne     ed_b1
+                ldaa    #180            ; the climb, two rows a step
+                staa    ed_hy
+ed_b3:          ldx     #TXT_AT(120,ED_SHAFT) ; (the shaft behind him again)
+ed_b4:          stx     ed_s
+                ldaa    #T_LADDER
+                jsr     tile_put
+                ldx     ed_s
+                inx
+                ldaa    #T_BRICK
+                jsr     tile_put
+                ldd     ed_s
+                addd    #12*ROW_BYTES
+                std     ed_s
+                ldx     ed_s
+                cpx     #TXT_AT(192,ED_SHAFT)
+                bne     ed_b4
+                ldaa    ed_hy
+                anda    #4              ; (hand over hand)
+                ldx     #hero_c0_hr0
+                beq     ed_f2
+                ldx     #hero_c1_hr0
+ed_f2:          ldab    ed_hy
+                jsr     ed_draw
+                ldaa    ed_hy
+                anda    #7
+                bne     ed_f3
+                ldx     #fx_step
+                ldaa    #1
+                jsr     snd_play
+ed_f3:          ldaa    #2
                 jsr     wait
-                ldaa    #255
+                dec     ed_hy
+                dec     ed_hy
+                ldaa    ed_hy
+                cmpa    #ED_TOP
+                bne     ed_b3
+                clr     ed_i            ; out: the fanfare, a hop a chord
+                ldx     #ed_hop
+                stx     jg_hook
+                ldx     #ed_tune
+                jsr     jg_play
+                ldaa    #12             ; the fireworks
+                staa    fw_k
+fw_b0:          jsr     rnd             ; (somewhere in the sky)
+                andb    #63
+                addb    #32
+                stab    fw_cx
+                jsr     rnd
+                andb    #31
+                addb    #64
+                stab    fw_cy
+                ldab    fw_k            ; (yellow, red, green)
+                andb    #3
+                ldx     #fw_col
+                abx
+                ldaa    0,x
+                staa    pl_cb
+                ldx     #fw_x           ; every spark from the middle
+                ldab    #8
+fw_b1:          ldaa    fw_cx
+                staa    0,x
+                ldaa    fw_cy
+                staa    8,x
+                inx
+                decb
+                bne     fw_b1
+                ldx     #fx_pop
+                ldaa    #3
+                jsr     snd_play
+                ldaa    #7
+                staa    fw_s
+fw_b2:          jsr     fw_all          ; drawn, a moment, gone, on out
+                ldaa    #3
+                jsr     wait
+                ldaa    pl_cb
+                psha
+                ldaa    #GFX_FILL
+                staa    pl_cb
+                jsr     fw_all
+                pula
+                staa    pl_cb
+                ldx     #fw_x
+                ldab    #0
+fw_b3:          pshx
+                ldx     #fw_dir
+                abx
+                ldaa    0,x
+                ldx     #fw_dir+8
+                abx
+                ldab    0,x
+                pulx
+                adda    0,x
+                staa    0,x
+                addb    8,x
+                stab    8,x
+                inx
+                tba                     ; (the index again: x - fw_x)
+                stx     ed_s
+                ldd     ed_s
+                subd    #fw_x
+                cmpb    #8
+                bne     fw_b3
+                dec     fw_s
+                beq     fw_f2
+                jmp     fw_b2
+fw_f2:
+                jsr     rnd             ; (a pause before the next)
+                andb    #15
+                addb    #8
+                tba
+                jsr     wait
+                dec     fw_k
+                beq     fw_f0
+                jmp     fw_b0
+fw_f0:
+                jsr     hi_check
+                ldaa    #120
                 jsr     wait
                 jmp     to_title
+
+; ed_draw: X = a pose (the hero's routines), B = his top row: drawn over
+; the shaft's column (the sky above the surface cleared first)
+ed_draw:
+                stx     ed_j+1
+                ldaa    #32
+                mul
+                addd    #SCREEN+ED_SHAFT
+                std     ed_s
+                ldx     #TXT_AT(ED_TOP-12,ED_SHAFT)
+                ldaa    #24
+                ldab    #2
+                jsr     box_clear
+                ldx     ed_s
+ed_j:           jmp     ed_j            ; (its routine: set above)
+
+; ed_hop: after each chord (the jingle's hook): the next step of the dance
+ed_hop:
+                ldab    ed_i
+                inc     ed_i
+                aslb
+                aslb
+                ldx     #ed_steps
+                abx
+                ldab    2,x
+                ldx     0,x
+                bra     ed_draw
+ed_steps:       fdb     hero_r0_hr0
+                fcb     ED_TOP-8, 0
+                fdb     hero_l0_hr0
+                fcb     ED_TOP, 0
+                fdb     hero_l0_hr0
+                fcb     ED_TOP-8, 0
+                fdb     hero_r0_hr0
+                fcb     ED_TOP, 0
+                fdb     hero_r1_hr0
+                fcb     ED_TOP-8, 0
+                fdb     hero_r1_hr0
+                fcb     ED_TOP, 0
+                fdb     hero_l0_hr0
+                fcb     ED_TOP-8, 0
+                fdb     hero_r1_hr0
+                fcb     ED_TOP, 0
+
+; fw_all: every spark plotted in pl_cb
+fw_all:
+                ldx     #fw_x
+fa_b1:          stx     ed_s
+                ldaa    0,x             ; (two rows: a spark you can see)
+                ldab    8,x
+                jsr     plot
+                ldx     ed_s
+                ldaa    0,x
+                ldab    8,x
+                incb
+                jsr     plot
+                ldx     ed_s
+                inx
+                cpx     #fw_x+8
+                bne     fa_b1
+                rts
+
+; plot: a pixel of pl_cb's color at A = x (0-127), B = y, if in the sky
+plot:
+                cmpa    #128
+                bcc     pl_r
+                cmpb    #60
+                bcs     pl_r
+                cmpb    #ED_TOP-14
+                bcc     pl_r
+                staa    pl_x
+                ldaa    #32
+                mul
+                addd    #SCREEN
+                std     pl_a
+                ldab    pl_x
+                lsrb
+                lsrb
+                clra
+                addd    pl_a
+                std     pl_a
+                ldab    pl_x
+                andb    #3
+                ldx     #pl_mask
+                abx
+                ldaa    0,x
+                staa    pl_m
+                ldx     pl_a
+                coma
+                anda    0,x
+                staa    pl_t
+                ldaa    pl_cb
+                anda    pl_m
+                oraa    pl_t
+                staa    0,x
+pl_r:           rts
+pl_mask:        fcb     $C0, $30, $0C, $03
+fw_col:         fcb     COLOR_BYTE(CG_YELLOW), COLOR_BYTE(CG_RED), COLOR_BYTE(CG_GREEN), COLOR_BYTE(CG_YELLOW)
+fw_dir:         fcb     2, 1, 0, -1, -2, -1, 0, 1       ; (across: a pixel is
+                fcb     0, 3, 4, 3, 0, -3, -4, -3       ; about two rows wide)
+; the fanfare in A (the title's key): da-da-DUM da-da-DUM ... DAAA (the
+; chords run on into each other: room for the test builds' code)
+ED_A4           equ     1869            ; (phase steps: f * 4.2475)
+ED_GS4          equ     1764
+ED_B4           equ     2098
+ED_CS5          equ     2355
+ED_D5           equ     2495
+ED_E5           equ     2800
+ED_FS5          equ     3143
+ED_A5           equ     3738
+ed_tune:        fdb     ED_A4, ED_CS5, JG_E
+                fdb     ED_CS5, ED_E5, JG_E
+                fdb     ED_E5, ED_A5, JG_Q
+                fdb     ED_D5, ED_FS5, JG_E
+                fdb     ED_CS5, ED_E5, JG_E
+                fdb     ED_B4, ED_D5, JG_Q
+                fdb     ED_GS4, ED_E5, JG_Q
+                fdb     ED_A4, ED_A5, JG_W
+                fdb     0, 0, 0
 
                 if      TRACE
 ; trace: $A5, the hero's x, y, h_dead, geodes left, the exit's state, then
@@ -1152,6 +1425,9 @@ fx_trap:        fcb     6, SND_TONE     ; a guard falls into a hole: a bonk
                 fcb     0
 fx_bury:        fcb     10, SND_NOISE   ; a hole closes on a guard: a crunch
                 fdb     900, 60
+                fcb     0
+fx_pop:         fcb     12, SND_NOISE   ; a firework bursting: a crackle
+                fdb     200, 90
                 fcb     0
 fx_gem:         fcb     3, SND_TONE     ; a geode: bling
                 fdb     N_E5, 0

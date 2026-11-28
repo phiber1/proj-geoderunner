@@ -255,11 +255,16 @@ hc_r:           rts
 ; jingle: the notes in jg_tab, two voices at once (interrupts off: the
 ; loop alone drives the speaker)
 jingle:
+                ldx     #0              ; (no hook)
+                stx     jg_hook
+                ldx     #jg_tab
+; jg_play: X = a tune (the voices' steps and loops a note), jg_hook a
+; routine called after each note but the rests (the ending's dance)
+jg_play:
                 sei
                 ldaa    vdg_shadow      ; the VDG mode, the speaker bit clear
                 anda    #~VDG_SND&$FF
                 staa    jg_v
-                ldx     #jg_tab
 jg_b1:          stx     jg_p
                 ldd     4,x             ; (0 loops: the end)
                 beq     jg_end
@@ -273,7 +278,12 @@ jg_b1:          stx     jg_p
                 std     jg_a2
                 ldx     jg_n
                 bsr     tone2
-                ldx     jg_p
+                ldx     jg_hook
+                beq     jg_f1
+                ldd     jg_i1           ; (not after a rest)
+                beq     jg_f1
+                jsr     0,x
+jg_f1:          ldx     jg_p
                 ldab    #6
                 abx
                 bra     jg_b1
