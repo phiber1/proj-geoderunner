@@ -88,9 +88,16 @@ check "SPACE on the title: level $(echo "$out" | byte $LV 1) (chosen $(echo "$ou
 # 5b. A quick SPACE tap in the middle of a step isn't lost: the step is
 #     done at once and it digs from the next cell (left, the way he
 #     walked), now, not when he'd have got there.
-out=$(run poke:$JF,04 frames:3 poke:$JF,10 frames:1 poke:$JF,00 frames:2 mem:$HR,2 mem:$(cell 14 28),1)
+out=$(run poke:$JF,04 frames:5 poke:$JF,10 frames:1 poke:$JF,00 frames:2 mem:$HR,2 mem:$(cell 14 28),1)
 check "a SPACE tap mid-step digs on arrival (at $(echo "$out" | bytes $HR 1): cell $(echo "$out" | bytes $(cell 14 28) 1))" \
       "[ $(echo "$out" | bytes $HR 1) = 0D1D ] && echo \" 09 0A \" | grep -q \" $(echo "$out" | bytes $(cell 14 28) 1) \""
+
+# 5h. An arrow and SPACE pressed together (the arrow a frame ahead: a
+#     chord) dig where he stands, toward the arrow, without a step (the
+#     owner: turning to dig in a pit two cells wide snapped him across).
+out=$(run poke:$JF,04 frames:1 poke:$JF,14 frames:1 poke:$JF,00 frames:3 mem:$HR,2 mem:$(cell 14 29),1)
+check "arrow and SPACE together: digs where he stands (at $(echo "$out" | bytes $HR 1): cell $(echo "$out" | bytes $(cell 14 29) 1))" \
+      "[ $(echo "$out" | bytes $HR 1) = 0D1E ] && echo \" 09 0A \" | grep -q \" $(echo "$out" | bytes $(cell 14 29) 1) \""
 
 # 5c. No digging under a geode (as under a ladder).
 out=$(run poke:$(cell 13 29),05 poke:$JF,14 frames:1 poke:$JF,00 frames:20 mem:$(cell 14 29),1)
@@ -98,7 +105,7 @@ check "no dig under a geode (brick $(echo "$out" | bytes $(cell 14 29) 1))" "[ $
 
 # 5e. The hole goes the way he faced when SPACE was pressed: tapped
 #     walking left, then right held before he arrives: still left.
-out=$(run poke:$JF,04 frames:3 poke:$JF,10 frames:1 poke:$JF,08 frames:5 poke:$JF,00 frames:10 mem:$(cell 14 28),1 mem:$(cell 14 30),1)
+out=$(run poke:$JF,04 frames:5 poke:$JF,10 frames:1 poke:$JF,08 frames:5 poke:$JF,00 frames:10 mem:$(cell 14 28),1 mem:$(cell 14 30),1)
 check "dig way from the press (left $(echo "$out" | bytes $(cell 14 28) 1), right $(echo "$out" | bytes $(cell 14 30) 1))" \
       "echo \" 09 0A 00 \" | grep -q \" $(echo "$out" | bytes $(cell 14 28) 1) \" && [ $(echo "$out" | bytes $(cell 14 30) 1) = 01 ]"
 

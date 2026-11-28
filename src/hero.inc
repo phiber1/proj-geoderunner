@@ -14,6 +14,8 @@ H_WALK          equ     8               ; frames to walk a cell (1 pixel / 2)
 H_CLIMB         equ     10              ; ... to climb one (climbtab)
 H_FALL          equ     12              ; ... to fall one (a row a frame)
 DIG_LATCH       equ     12              ; frames a SPACE tap is remembered
+CHORD           equ     2               ; frames into a step that SPACE still
+                                        ; counts as pressed with its arrow
 LAND_LEAD       equ     4               ; frames before touchdown the thud starts
                                         ; (sound reaches the ear a few frames late)
 
@@ -132,7 +134,15 @@ hu_l0:          stab    h_ddir
                 beq     hu_s1
                 cmpb    #D_RIGHT
                 bne     hu_l2
-hu_s1:          ldaa    h_c             ; (there, on the cell)
+hu_s1:          ldaa    h_t             ; pressed with the arrow (a chord: the
+                cmpa    #H_WALK-CHORD   ; arrow a frame or two ahead): no step
+                bcs     hu_s3           ; at all, he digs where he stands
+                cmpb    #D_LEFT         ; (turning in a pit two cells wide:
+                bne     hu_s2           ; the owner)
+                inc     h_c
+                bra     hu_s3
+hu_s2:          dec     h_c
+hu_s3:          ldaa    h_c             ; (there, on the cell)
                 lsla
                 lsla
                 staa    h_x

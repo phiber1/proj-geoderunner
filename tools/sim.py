@@ -19,7 +19,7 @@ CODES = '.BSH-TPEX'
 ROWS, COLS = 15, 32
 MAX_GUARDS, HOLES = 4, 8
 
-H_WALK, H_CLIMB, H_FALL, DIG_LATCH = 8, 10, 12, 12
+H_WALK, H_CLIMB, H_FALL, DIG_LATCH, CHORD = 8, 10, 12, 12, 2
 D_NONE, D_LEFT, D_RIGHT, D_UP, D_DOWN, D_FALL = range(6)
 CLIMBTAB = [0, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1]
 HS_DIG, HS_OPEN, HS_FILL = 1, 2, 3
@@ -174,6 +174,8 @@ class Game:
             # pressed walking between cells: the step done at once, the dig
             # from the cell he was walking into (hero.inc)
             if not self.dig and self.t and self.dir in (D_LEFT, D_RIGHT):
+                if self.t >= H_WALK - CHORD:        # (a chord: no step at all)
+                    self.c += 1 if self.dir == D_LEFT else -1
                 self.x = self.c * 4
                 self.t = 0
         elif self.dlat:
