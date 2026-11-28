@@ -279,11 +279,16 @@ p1=$(echo "$out" | bytes $GSPR 1); p2=$(echo "$out" | bytes $GSPR 2)
 check "a guard on a cable hangs from it (poses $p1, $p2: guard_h0 $HH0, guard_h1 $HH1)" \
       "{ [ $p1 = $HH0 ] || [ $p1 = $HH1 ]; } && { [ $p2 = $HH0 ] || [ $p2 = $HH1 ]; }"
 
-# 16b. A trapped guard kills too, touched from beside: the hero drops into
-#      an open hole next to a guard trapped in his (bottom floor, columns
-#      29 and 30), side by side: caught (the owner: he passed through him).
-out=$(run poke:$GUARDS,74B474B4 poke:$(off $GUARDS 8),0E1D00000000 poke:$G0ST,01C8 poke:$(cell 14 29),00 poke:$(cell 14 30),00 frames:240 mem:$LI,1)
+# 16b. A trapped guard kills too, touched from beside: a guard trapped in
+#      the bottom floor at column 28, the hero digs the hole beside it
+#      (column 29) and drops in: caught (the owner: he passed through him).
+#      But a ladder past a trapped guard is safe: one trapped beside level
+#      1's ladder at column 27 where it passes the floor (row 11), the hero
+#      climbs past him.
+out=$(run poke:$GUARDS,70B470B4 poke:$(off $GUARDS 8),0E1C00000000 poke:$G0ST,01C8 poke:$(cell 14 28),00 frames:4 poke:$JF,14 frames:1 poke:$JF,00 frames:24 poke:$JF,04 frames:12 poke:$JF,00 frames:240 mem:$LI,1)
 check "dropping into the hole beside a trapped guard: caught (lives $(echo "$out" | byte $LI 1))" "[ $(echo "$out" | byte $LI 1) = 2 ]"
+out=$(run poke:$GUARDS,70907090 poke:$(off $GUARDS 8),0B1C00000000 poke:$G0ST,01C8 poke:$(cell 11 28),00 poke:$JF,04 frames:24 poke:$JF,01 frames:40 poke:$JF,00 frames:30 mem:$HR,2 mem:$LI,1)
+check "climbing a ladder past a trapped guard: safe (at $(echo "$out" | bytes $HR 1), lives $(echo "$out" | byte $LI 1))" "[ $(echo "$out" | bytes $HR 1) = 0A1B ] && [ $(echo "$out" | byte $LI 1) = 3 ]"
 
 # 17. The hero can stand on a guard's head (a guard at (13, 20), the hero
 #     put just above him), walk off unharmed, and dies pressing down.

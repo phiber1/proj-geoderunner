@@ -1114,13 +1114,33 @@ rnd_f1:         std     seed
 ; caught: Z clear if a guard touches the hero (within a cell's width
 ; across and most of its height down)
 caught:
+                clr     cg_hole         ; the hero in a hole?  (falling into one:
+                ldx     #holes          ; it's his cell already)
+                ldab    #HOLES
+cg_h1:          tst     O_ST,x
+                beq     cg_h2
+                ldaa    O_R,x
+                cmpa    h_r
+                bne     cg_h2
+                ldaa    O_C,x
+                cmpa    h_c
+                bne     cg_h2
+                inc     cg_hole
+cg_h2:          pshb
+                ldab    #O_SIZE
+                abx
+                pulb
+                decb
+                bne     cg_h1
                 ldx     #guards
                 ldab    nguard
                 beq     cg_no
-cg_b1:          ldaa    #3              ; (a trapped guard: in the hole beside
-                tst     G_ST,x          ; his, a cell across, is touching him
-                beq     cg_f0           ; too: the owner; standing on his head
-                inca                    ; is a cell above, out of reach)
+cg_b1:          ldaa    #3              ; (in the hole beside a trapped guard's,
+                tst     G_ST,x          ; a cell across, is touching him too:
+                beq     cg_f0           ; the owner; not on a ladder past him,
+                tst     cg_hole         ; nor standing on his head, a cell
+                beq     cg_f0           ; above)
+                inca
 cg_f0:          staa    cg_lim
                 ldaa    A_X,x
                 suba    h_x

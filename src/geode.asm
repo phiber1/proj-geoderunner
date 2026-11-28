@@ -124,7 +124,8 @@ start_lv        rmb     1               ; title.inc: the level a game starts at
 chosen          rmb     1               ; ... nonzero: chosen (MC10): no best score
 ls_i            rmb     1               ; title.inc: MC10 typed so far, keys,
 ls_was          rmb     1               ; ... the key held last frame
-cg_lim          rmb     1               ; guards.inc caught: how near is touching
+cg_lim          rmb     1               ; guards.inc caught: how near is touching,
+cg_hole         rmb     1               ; ... the hero in a hole
 ed_s            rmb     2               ; the ending: a place on the screen,
 ed_n            rmb     1               ; ... a count,
 ed_hy           rmb     1               ; ... the hero's top row,
