@@ -875,7 +875,11 @@ REROLL = {47: 1,       # (47: four guards camped the one way to the exit: the so
 EDITS = {84: [(13, 2, '.'),     # (84, played at 96: nine geodes, not ten:
                         # the one in the stone corner gone (the owner: ten "too
                         # hard", eight "too procedurally easy for a level 96");
-               (7, 17, 'B'), (8, 17, '.'), (9, 17, '.'), (10, 17, '.')]}
+               (7, 17, 'B'), (8, 17, '.'), (9, 17, '.'), (10, 17, '.')]
+               # and the stone under its geodes' walkways brick (the owner:
+               # its scattered solid floors left nowhere to trap a guard)
+               + [(7, c, 'B') for c in range(0, 5)] + [(7, c, 'B') for c in range(24, 29)]
+               + [(14, c, 'B') for c in range(10, 15)] + [(14, c, 'B') for c in range(17, 20)]}
                         # and its ladder from top to bottom just off the middle
                         # cut through the middle floors: an express lane for
                         # the guards to every quadrant (the owner); now they
