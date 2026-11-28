@@ -472,10 +472,18 @@ cp_actor:
                 ldx     cp_t2
                 abx
                 stx     cp_t2
-                ldx     cp_b            ; the pose's routine for sx & 3
-                ldx     A_SPR,x
-                ldab    cp_sx
-                andb    #3
+                ldx     cp_b            ; the pose's routine for the shift:
+                ldab    A_X,x           ; (x - 1) & 3, a pixel left of its
+                beq     cpa_e0          ; cell even at the screen's edges,
+                decb                    ; where sprite_x had to stop short:
+                andb    #3              ; the pixel past the edge lands in the
+                bra     cpa_f9          ; shadow, outside the patch copied
+cpa_e0:         ldx     cp_t2           ; (at column 0: a byte to the left)
+                dex
+                stx     cp_t2
+                ldx     cp_b
+                ldab    #3
+cpa_f9:         ldx     A_SPR,x
                 aslb
                 abx
                 ldx     0,x
